@@ -22,7 +22,7 @@ tips.py
 venv*
 bin/
 .vscode
-test_*
+/test_*
 venv/
 hugchat.json
 qcapi
@@ -42,4 +42,13 @@ botpy.log*
 test.py
 /web_ui
 .venv/
-uv.lock
+/test
+plugins.bak
+coverage.xml
+.coverage
+src/langbot/web/
+
+# Build artifacts
+/dist
+/build
+*.egg-info

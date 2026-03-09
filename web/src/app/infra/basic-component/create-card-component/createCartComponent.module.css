@@ -7,13 +7,27 @@
   align-items: center;
   justify-content: space-evenly;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+:global(.dark) .cardContainer {
+  background-color: #1f1f22;
+  box-shadow: 0;
 }
 
 .cardContainer:hover {
   box-shadow: 0 0 15px 0 rgba(0, 0, 0, 0.05);
 }
 
+:global(.dark) .cardContainer:hover {
+  box-shadow: 0;
+}
+
 .createCardContainer {
   font-size: 90px;
   color: #acacac;
+}
+
+:global(.dark) .createCardContainer {
+  color: #666666;
 }

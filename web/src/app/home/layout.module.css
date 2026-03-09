@@ -7,6 +7,19 @@
   background-color: #eee;
 }
 
+:global(.dark) .homeLayoutContainer {
+  background-color: #0a0a0b;
+}
+
+/* 侧边栏区域 */
+.sidebar {
+  background-color: #eee;
+}
+
+:global(.dark) .sidebar {
+  background-color: #0a0a0b;
+}
+
 /* 主内容区域 */
 .main {
   background-color: #fafafa;
@@ -23,10 +36,19 @@
   box-shadow: 0 0 6px 0 rgba(0, 0, 0, 0.05);
 }
 
+:global(.dark) .main {
+  background-color: #151518;
+  box-shadow: 0 0 6px 0 rgba(255, 255, 255, 0.05);
+}
+
 .mainContent {
   padding: 1.5rem;
   padding-left: 2rem;
   flex: 1;
   overflow-y: auto;
   background-color: #fafafa;
+}
+
+:global(.dark) .mainContent {
+  background-color: #151518;
 }

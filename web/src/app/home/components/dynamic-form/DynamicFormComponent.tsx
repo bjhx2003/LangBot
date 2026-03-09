@@ -11,18 +11,29 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import DynamicFormItemComponent from '@/app/home/components/dynamic-form/DynamicFormItemComponent';
-import { useEffect } from 'react';
-import { i18nObj } from '@/i18n/I18nProvider';
+import { useCallback, useEffect, useRef } from 'react';
+import { extractI18nObject } from '@/i18n/I18nProvider';
+import { useTranslation } from 'react-i18next';
 
 export default function DynamicFormComponent({
   itemConfigList,
   onSubmit,
   initialValues,
+  onFileUploaded,
+  isEditing,
+  externalDependentValues,
 }: {
   itemConfigList: IDynamicFormItemSchema[];
   onSubmit?: (val: object) => unknown;
   initialValues?: Record<string, object>;
+  onFileUploaded?: (fileKey: string) => void;
+  isEditing?: boolean;
+  externalDependentValues?: Record<string, unknown>;
 }) {
+  const isInitialMount = useRef(true);
+  const previousInitialValues = useRef(initialValues);
+  const { t } = useTranslation();
+
   // 根据 itemConfigList 动态生成 zod schema
   const formSchema = z.object(
     itemConfigList.reduce(
@@ -50,6 +61,18 @@ export default function DynamicFormComponent({
           case 'llm-model-selector':
             fieldSchema = z.string();
             break;
+          case 'embedding-model-selector':
+            fieldSchema = z.string();
+            break;
+          case 'knowledge-base-selector':
+            fieldSchema = z.string();
+            break;
+          case 'knowledge-base-multi-selector':
+            fieldSchema = z.array(z.string());
+            break;
+          case 'bot-selector':
+            fieldSchema = z.string();
+            break;
           case 'prompt-editor':
             fieldSchema = z.array(
               z.object({
@@ -67,7 +90,9 @@ export default function DynamicFormComponent({
           (fieldSchema instanceof z.ZodString ||
             fieldSchema instanceof z.ZodArray)
         ) {
-          fieldSchema = fieldSchema.min(1, { message: '此字段为必填项' });
+          fieldSchema = fieldSchema.min(1, {
+            message: t('common.fieldRequired'),
+          });
         }
 
         return {
@@ -94,9 +119,22 @@ export default function DynamicFormComponent({
   });
 
   // 当 initialValues 变化时更新表单值
+  // 但要避免因为内部表单更新触发的 onSubmit 导致的 initialValues 变化而重新设置表单
   useEffect(() => {
-    console.log('initialValues', initialValues);
-    if (initialValues) {
+    // 首次挂载时，使用 initialValues 初始化表单
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      previousInitialValues.current = initialValues;
+      return;
+    }
+
+    // 检查 initialValues 是否真的发生了实质性变化
+    // 使用 JSON.stringify 进行深度比较
+    const hasRealChange =
+      JSON.stringify(previousInitialValues.current) !==
+      JSON.stringify(initialValues);
+
+    if (initialValues && hasRealChange) {
       // 合并默认值和初始值
       const mergedValues = itemConfigList.reduce(
         (acc, item) => {
@@ -109,55 +147,125 @@ export default function DynamicFormComponent({
       Object.entries(mergedValues).forEach(([key, value]) => {
         form.setValue(key as keyof FormValues, value);
       });
+
+      previousInitialValues.current = initialValues;
     }
   }, [initialValues, form, itemConfigList]);
 
+  // Get reactive form values for conditional rendering
+  const watchedValues = form.watch();
+
+  // Stable ref for onSubmit to avoid re-triggering the effect when the
+  // parent passes a new closure on every render.
+  const onSubmitRef = useRef(onSubmit);
+  onSubmitRef.current = onSubmit;
+
+  // Track the last emitted values to avoid emitting identical snapshots,
+  // which would cause the parent to call setValue with an equivalent object,
+  // triggering a re-render loop.
+  const lastEmittedRef = useRef<string>('');
+
+  const emitValues = useCallback(() => {
+    const formValues = form.getValues();
+    const finalValues = itemConfigList.reduce(
+      (acc, item) => {
+        acc[item.name] = formValues[item.name] ?? item.default;
+        return acc;
+      },
+      {} as Record<string, object>,
+    );
+    const serialized = JSON.stringify(finalValues);
+    if (serialized !== lastEmittedRef.current) {
+      lastEmittedRef.current = serialized;
+      onSubmitRef.current?.(finalValues);
+    }
+  }, [form, itemConfigList]);
+
   // 监听表单值变化
   useEffect(() => {
+    // Emit initial form values immediately so the parent always has a valid snapshot,
+    // even if the user saves without modifying any field.
+    // form.watch(callback) only fires on subsequent changes, not on mount.
+    emitValues();
+
     const subscription = form.watch(() => {
-      // 获取完整的表单值，确保包含所有默认值
-      const formValues = form.getValues();
-      console.log('formValues', formValues);
-      const finalValues = itemConfigList.reduce(
-        (acc, item) => {
-          acc[item.name] = formValues[item.name] ?? item.default;
-          return acc;
-        },
-        {} as Record<string, object>,
-      );
-      console.log('finalValues', finalValues);
-      onSubmit?.(finalValues);
+      emitValues();
     });
     return () => subscription.unsubscribe();
-  }, [form, onSubmit, itemConfigList]);
+  }, [form, itemConfigList, emitValues]);
 
   return (
     <Form {...form}>
       <div className="space-y-4">
-        {itemConfigList.map((config) => (
-          <FormField
-            key={config.id}
-            control={form.control}
-            name={config.name as keyof FormValues}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  {i18nObj(config.label)}{' '}
-                  {config.required && <span className="text-red-500">*</span>}
-                </FormLabel>
-                <FormControl>
-                  <DynamicFormItemComponent config={config} field={field} />
-                </FormControl>
-                {config.description && (
-                  <p className="text-sm text-muted-foreground">
-                    {i18nObj(config.description)}
-                  </p>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ))}
+        {itemConfigList.map((config) => {
+          if (config.show_if) {
+            const dependValue =
+              watchedValues[
+                config.show_if.field as keyof typeof watchedValues
+              ] !== undefined
+                ? watchedValues[
+                    config.show_if.field as keyof typeof watchedValues
+                  ]
+                : externalDependentValues?.[config.show_if.field];
+
+            if (
+              config.show_if.operator === 'eq' &&
+              dependValue !== config.show_if.value
+            ) {
+              return null;
+            }
+            if (
+              config.show_if.operator === 'neq' &&
+              dependValue === config.show_if.value
+            ) {
+              return null;
+            }
+            if (
+              config.show_if.operator === 'in' &&
+              Array.isArray(config.show_if.value) &&
+              !config.show_if.value.includes(dependValue)
+            ) {
+              return null;
+            }
+          }
+
+          // All fields are disabled when editing (creation_settings are immutable)
+          const isFieldDisabled = !!isEditing;
+          return (
+            <FormField
+              key={config.id}
+              control={form.control}
+              name={config.name as keyof FormValues}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {extractI18nObject(config.label)}{' '}
+                    {config.required && <span className="text-red-500">*</span>}
+                  </FormLabel>
+                  <FormControl>
+                    <div
+                      className={
+                        isFieldDisabled ? 'pointer-events-none opacity-60' : ''
+                      }
+                    >
+                      <DynamicFormItemComponent
+                        config={config}
+                        field={field}
+                        onFileUploaded={onFileUploaded}
+                      />
+                    </div>
+                  </FormControl>
+                  {config.description && (
+                    <p className="text-sm text-muted-foreground">
+                      {extractI18nObject(config.description)}
+                    </p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          );
+        })}
       </div>
     </Form>
   );

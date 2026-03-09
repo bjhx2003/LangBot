@@ -1,0 +1,87 @@
+admins: []
+api:
+    port: 5300
+    webhook_prefix: 'http://127.0.0.1:5300'
+command:
+    enable: true
+    prefix:
+    - '!'
+    - ！
+    privilege: {}
+concurrency:
+    pipeline: 20
+    session: 1
+proxy:
+    http: ''
+    https: ''
+system:
+    edition: community
+    recovery_key: ''
+    allow_modify_login_info: true
+    limitation:
+        max_bots: -1
+        max_pipelines: -1
+        max_extensions: -1
+    jwt:
+        expire: 604800
+        secret: ''
+database:
+    use: sqlite
+    sqlite:
+        path: 'data/langbot.db'
+    postgresql:
+        host: '127.0.0.1'
+        port: 5432
+        user: 'postgres'
+        password: 'postgres'
+        database: 'postgres'
+vdb:
+    use: chroma
+    qdrant:
+        url: ''
+        host: localhost
+        port: 6333
+        api_key: ''
+    seekdb:
+        mode: embedded  # 'embedded' or 'server'
+        # Embedded mode options:
+        path: './data/seekdb'
+        database: 'langbot'
+        # Server mode options (used when mode='server'):
+        host: 'localhost'
+        port: 2881
+        user: 'root'
+        password: ''
+        tenant: ''  # Optional, for OceanBase server
+    milvus:
+        uri: 'http://127.0.0.1:19530'
+        token: ''
+        db_name: ''
+    pgvector:
+        host: '127.0.0.1'
+        port: 5433
+        database: 'langbot'
+        user: 'postgres'
+        password: 'postgres'
+storage:
+    use: local
+    s3:
+        endpoint_url: ''
+        access_key_id: ''
+        secret_access_key: ''
+        region: 'us-east-1'
+        bucket: 'langbot-storage'
+plugin:
+    enable: true
+    runtime_ws_url: 'ws://langbot_plugin_runtime:5400/control/ws'
+    enable_marketplace: true
+    display_plugin_debug_url: 'ws://localhost:5401/plugin/debug/ws'
+space:
+    # Space service URL for OAuth and API
+    url: 'https://space.langbot.app'
+    # Space API URL for model requests (MaaS)
+    models_gateway_api_url: 'https://api.langbot.cloud/v1'
+    # OAuth authorization page URL (user will be redirected here)
+    oauth_authorize_url: 'https://space.langbot.app/auth/authorize'
+    disable_models_service: false
+    disable_telemetry: false

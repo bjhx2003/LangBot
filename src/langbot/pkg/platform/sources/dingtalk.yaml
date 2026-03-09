@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: MessagePlatformAdapter
+metadata:
+  name: dingtalk
+  label:
+    en_US: DingTalk
+    zh_Hans: 钉钉
+  description:
+    en_US: DingTalk Adapter
+    zh_Hans: 钉钉适配器，请查看文档了解使用方式
+  icon: dingtalk.svg
+spec:
+  config:
+    - name: client_id
+      label:
+        en_US: Client ID
+        zh_Hans: 客户端ID
+      type: string
+      required: true
+      default: ""
+    - name: client_secret
+      label:
+        en_US: Client Secret
+        zh_Hans: 客户端密钥
+      type: string
+      required: true
+      default: ""
+    - name: robot_code
+      label:
+        en_US: Robot Code
+        zh_Hans: 机器人代码
+      type: string
+      required: true
+      default: ""
+    - name: robot_name
+      label:
+        en_US: Robot Name
+        zh_Hans: 机器人名称
+      type: string
+      required: true
+      default: ""
+    - name: markdown_card
+      label:
+        en_US: Markdown Card
+        zh_Hans: 是否使用 Markdown 卡片
+      type: boolean
+      required: false
+      default: true
+    - name: enable-stream-reply
+      label:
+        en_US: Enable Stream Reply Mode
+        zh_Hans: 启用钉钉卡片流式回复模式
+      description:
+        en_US: If enabled, the bot will use the stream of lark reply mode
+        zh_Hans: 如果启用，将使用钉钉卡片流式方式来回复内容
+      type: boolean
+      required: true
+      default: false
+    - name: card_auto_layout
+      label:
+        en_US: Card Auto Layout
+        zh_Hans: 卡片宽屏自动布局
+      type: boolean
+      required: false
+      default: false
+    - name: card_template_id
+      label:
+        en_US: card template id
+        zh_Hans: 卡片模板ID
+      type: string
+      required: true
+      default: "填写你的卡片template_id"
+execution:
+  python:
+    path: ./dingtalk.py
+    attr: DingTalkAdapter

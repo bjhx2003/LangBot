@@ -2,18 +2,20 @@ import {
   IDynamicFormItemSchema,
   DynamicFormItemType,
   IDynamicFormItemOption,
+  IShowIfCondition,
 } from '@/app/infra/entities/form/dynamic';
-import { I18nLabel } from '@/app/infra/entities/common';
+import { I18nObject } from '@/app/infra/entities/common';
 
 export class DynamicFormItemConfig implements IDynamicFormItemSchema {
   id: string;
   name: string;
   default: string | number | boolean | Array<unknown>;
-  label: I18nLabel;
+  label: I18nObject;
   required: boolean;
   type: DynamicFormItemType;
-  description?: I18nLabel;
+  description?: I18nObject;
   options?: IDynamicFormItemOption[];
+  show_if?: IShowIfCondition;
 
   constructor(params: IDynamicFormItemSchema) {
     this.id = params.id;
@@ -24,6 +26,7 @@ export class DynamicFormItemConfig implements IDynamicFormItemSchema {
     this.type = params.type;
     this.description = params.description;
     this.options = params.options;
+    this.show_if = params.show_if;
   }
 }
 

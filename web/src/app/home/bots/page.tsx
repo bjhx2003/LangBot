@@ -9,8 +9,10 @@ import { httpClient } from '@/app/infra/http/HttpClient';
 import { Bot, Adapter } from '@/app/infra/entities/api';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { i18nObj } from '@/i18n/I18nProvider';
+import { extractI18nObject } from '@/i18n/I18nProvider';
 import BotDetailDialog from '@/app/home/bots/BotDetailDialog';
+import { CustomApiError } from '@/app/infra/entities/common';
+import { systemInfo } from '@/app/infra/http';
 
 export default function BotConfigPage() {
   const { t } = useTranslation();
@@ -27,7 +29,7 @@ export default function BotConfigPage() {
     const adapterListResp = await httpClient.getAdapters();
     const adapterList = adapterListResp.adapters.map((adapter: Adapter) => {
       return {
-        label: i18nObj(adapter.label),
+        label: extractI18nObject(adapter.label),
         value: adapter.name,
       };
     });
@@ -54,14 +56,16 @@ export default function BotConfigPage() {
       })
       .catch((err) => {
         console.error('get bot list error', err);
-        toast.error(t('bots.getBotListError') + err.message);
-      })
-      .finally(() => {
-        // setIsLoading(false);
+        toast.error(t('bots.getBotListError') + (err as CustomApiError).msg);
       });
   }
 
   function handleCreateBotClick() {
+    const maxBots = systemInfo.limitation?.max_bots ?? -1;
+    if (maxBots >= 0 && botList.length >= maxBots) {
+      toast.error(t('limitation.maxBotsReached', { max: maxBots }));
+      return;
+    }
     setSelectedBotId('');
     setDetailDialogOpen(true);
   }
@@ -86,13 +90,12 @@ export default function BotConfigPage() {
   }
 
   function handleNewBotCreated(botId: string) {
-    console.log('new bot created', botId);
     getBotList();
     setSelectedBotId(botId);
   }
 
   return (
-    <div className={styles.configPageContainer}>
+    <div>
       <BotDetailDialog
         open={detailDialogOpen}
         onOpenChange={setDetailDialogOpen}

@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { httpClient } from '@/app/infra/http/HttpClient';
-import { Pipeline } from '@/app/infra/entities/api';
+import { GetPipelineResponseData, Pipeline } from '@/app/infra/entities/api';
 import {
-  PipelineFormEntity,
   PipelineConfigTab,
   PipelineConfigStage,
 } from '@/app/infra/entities/pipeline';
@@ -14,6 +13,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Input } from '@/components/ui/input';
+import EmojiPicker from '@/components/ui/emoji-picker';
 import {
   Form,
   FormControl,
@@ -31,11 +31,9 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { i18nObj } from '@/i18n/I18nProvider';
+import { extractI18nObject } from '@/i18n/I18nProvider';
 
 export default function PipelineFormComponent({
-  initValues,
-  isDefaultPipeline,
   onFinish,
   onNewPipelineCreated,
   isEditMode,
@@ -45,12 +43,9 @@ export default function PipelineFormComponent({
   onCancel,
 }: {
   pipelineId?: string;
-  isDefaultPipeline: boolean;
   isEditMode: boolean;
   disableForm: boolean;
   showButtons?: boolean;
-  // 这里的写法很不安全不规范，未来流水线需要重新整理
-  initValues?: PipelineFormEntity;
   onFinish: () => void;
   onNewPipelineCreated: (pipelineId: string) => void;
   onDeletePipeline: () => void;
@@ -58,6 +53,8 @@ export default function PipelineFormComponent({
 }) {
   const { t } = useTranslation();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCopyConfirm, setShowCopyConfirm] = useState(false);
+  const [isDefaultPipeline, setIsDefaultPipeline] = useState<boolean>(false);
 
   const formSchema = isEditMode
     ? z.object({
@@ -66,6 +63,7 @@ export default function PipelineFormComponent({
           description: z
             .string()
             .min(1, { message: t('pipelines.descriptionRequired') }),
+          emoji: z.string().optional(),
         }),
         ai: z.record(z.string(), z.any()),
         trigger: z.record(z.string(), z.any()),
@@ -78,6 +76,7 @@ export default function PipelineFormComponent({
           description: z
             .string()
             .min(1, { message: t('pipelines.descriptionRequired') }),
+          emoji: z.string().optional(),
         }),
         ai: z.record(z.string(), z.any()).optional(),
         trigger: z.record(z.string(), z.any()).optional(),
@@ -109,13 +108,25 @@ export default function PipelineFormComponent({
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      basic: {},
+      basic: {
+        emoji: '⚙️',
+      },
       ai: {},
       trigger: {},
       safety: {},
       output: {},
     },
   });
+
+  // Track unsaved changes by comparing current form values against a saved snapshot
+  const savedSnapshotRef = useRef<string>('');
+  // Track which dynamic form stages have completed their initial mount emission.
+  const initializedStagesRef = useRef<Set<string>>(new Set());
+  const watchedValues = form.watch();
+  const hasUnsavedChanges = useMemo(() => {
+    if (!isEditMode || !savedSnapshotRef.current) return false;
+    return JSON.stringify(watchedValues) !== savedSnapshotRef.current;
+  }, [isEditMode, watchedValues]);
 
   useEffect(() => {
     // get config schema from metadata
@@ -132,25 +143,43 @@ export default function PipelineFormComponent({
         }
       }
     });
+
+    if (isEditMode) {
+      httpClient
+        .getPipeline(pipelineId || '')
+        .then((resp: GetPipelineResponseData) => {
+          setIsDefaultPipeline(resp.pipeline.is_default ?? false);
+          const loadedValues = {
+            basic: {
+              name: resp.pipeline.name,
+              description: resp.pipeline.description,
+              emoji: resp.pipeline.emoji || '⚙️',
+            },
+            ai: resp.pipeline.config.ai,
+            trigger: resp.pipeline.config.trigger,
+            safety: resp.pipeline.config.safety,
+            output: resp.pipeline.config.output,
+          };
+          form.reset(loadedValues);
+          savedSnapshotRef.current = JSON.stringify(loadedValues);
+          initializedStagesRef.current.clear();
+        });
+    }
   }, []);
 
   useEffect(() => {
-    if (initValues) {
-      form.reset(initValues);
-    }
-
     if (!isEditMode) {
       form.reset({
         basic: {
           name: '',
           description: '',
+          emoji: '⚙️',
         },
       });
     }
-  }, [initValues, form, isEditMode]);
+  }, [form, isEditMode]);
 
   function handleFormSubmit(values: FormValues) {
-    console.log('handleFormSubmit', values);
     if (isEditMode) {
       handleModify(values);
     } else {
@@ -159,11 +188,11 @@ export default function PipelineFormComponent({
   }
 
   function handleCreate(values: FormValues) {
-    console.log('handleCreate', values);
     const pipeline: Pipeline = {
       config: {},
       description: values.basic.description,
       name: values.basic.name,
+      emoji: values.basic.emoji,
     };
     httpClient
       .createPipeline(pipeline)
@@ -173,7 +202,7 @@ export default function PipelineFormComponent({
         toast.success(t('pipelines.createSuccess'));
       })
       .catch((err) => {
-        toast.error(t('pipelines.createError') + err.message);
+        toast.error(t('pipelines.createError') + err.msg);
       });
   }
 
@@ -191,6 +220,7 @@ export default function PipelineFormComponent({
       description: values.basic.description,
       // for_version: '',
       name: values.basic.name,
+      emoji: values.basic.emoji,
       // stages: [],
       // updated_at: '',
       // uuid: pipelineId || '',
@@ -199,12 +229,40 @@ export default function PipelineFormComponent({
     httpClient
       .updatePipeline(pipelineId || '', pipeline)
       .then(() => {
+        savedSnapshotRef.current = JSON.stringify(form.getValues());
         onFinish();
         toast.success(t('pipelines.saveSuccess'));
       })
       .catch((err) => {
-        toast.error(t('pipelines.saveError') + err.message);
+        toast.error(t('pipelines.saveError') + err.msg);
       });
+  }
+
+  // Called from DynamicFormComponent/N8nAuthFormComponent onSubmit callbacks.
+  // On the first emission for a stage (mount-time default filling), the
+  // snapshot is synchronously re-captured so that hasUnsavedChanges stays false.
+  function handleDynamicFormEmit(
+    formName: keyof FormValues,
+    stageName: string,
+    values: object,
+  ) {
+    const stageKey = `${String(formName)}.${stageName}`;
+    const isFirstEmission = !initializedStagesRef.current.has(stageKey);
+
+    const currentValues =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (form.getValues(formName) as Record<string, any>) || {};
+    form.setValue(formName, {
+      ...currentValues,
+      [stageName]: values,
+    });
+
+    if (isFirstEmission) {
+      initializedStagesRef.current.add(stageKey);
+      // Synchronously re-capture snapshot so that the useMemo comparison
+      // in the same render cycle still returns false.
+      savedSnapshotRef.current = JSON.stringify(form.getValues());
+    }
   }
 
   function renderDynamicForms(
@@ -220,10 +278,12 @@ export default function PipelineFormComponent({
       if (stage.name === 'runner') {
         return (
           <div key={stage.name} className="space-y-4 mb-6">
-            <div className="text-lg font-medium">{i18nObj(stage.label)}</div>
+            <div className="text-lg font-medium">
+              {extractI18nObject(stage.label)}
+            </div>
             {stage.description && (
               <div className="text-sm text-gray-500">
-                {i18nObj(stage.description)}
+                {extractI18nObject(stage.description)}
               </div>
             )}
             <DynamicFormComponent
@@ -234,13 +294,7 @@ export default function PipelineFormComponent({
                 {}
               }
               onSubmit={(values) => {
-                const currentValues =
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  (form.getValues(formName) as Record<string, any>) || {};
-                form.setValue(formName, {
-                  ...currentValues,
-                  [stage.name]: values,
-                });
+                handleDynamicFormEmit(formName, stage.name, values);
               }}
             />
           </div>
@@ -256,10 +310,12 @@ export default function PipelineFormComponent({
       if (stage.name === 'n8n-service-api') {
         return (
           <div key={stage.name} className="space-y-4 mb-6">
-            <div className="text-lg font-medium">{i18nObj(stage.label)}</div>
+            <div className="text-lg font-medium">
+              {extractI18nObject(stage.label)}
+            </div>
             {stage.description && (
               <div className="text-sm text-gray-500">
-                {i18nObj(stage.description)}
+                {extractI18nObject(stage.description)}
               </div>
             )}
             <N8nAuthFormComponent
@@ -270,13 +326,7 @@ export default function PipelineFormComponent({
                 {}
               }
               onSubmit={(values) => {
-                const currentValues =
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  (form.getValues(formName) as Record<string, any>) || {};
-                form.setValue(formName, {
-                  ...currentValues,
-                  [stage.name]: values,
-                });
+                handleDynamicFormEmit(formName, stage.name, values);
               }}
             />
           </div>
@@ -286,10 +336,12 @@ export default function PipelineFormComponent({
 
     return (
       <div key={stage.name} className="space-y-4 mb-6">
-        <div className="text-lg font-medium">{i18nObj(stage.label)}</div>
+        <div className="text-lg font-medium">
+          {extractI18nObject(stage.label)}
+        </div>
         {stage.description && (
           <div className="text-sm text-gray-500">
-            {i18nObj(stage.description)}
+            {extractI18nObject(stage.description)}
           </div>
         )}
         <DynamicFormComponent
@@ -299,13 +351,7 @@ export default function PipelineFormComponent({
             (form.watch(formName) as Record<string, any>)?.[stage.name] || {}
           }
           onSubmit={(values) => {
-            const currentValues =
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (form.getValues(formName) as Record<string, any>) || {};
-            form.setValue(formName, {
-              ...currentValues,
-              [stage.name]: values,
-            });
+            handleDynamicFormEmit(formName, stage.name, values);
           }}
         />
       </div>
@@ -326,14 +372,34 @@ export default function PipelineFormComponent({
           toast.success(t('pipelines.deleteSuccess'));
         })
         .catch((err) => {
-          toast.error(t('pipelines.deleteError') + err.message);
+          toast.error(t('pipelines.deleteError') + err.msg);
+        });
+    }
+  };
+
+  const handleCopy = () => {
+    setShowCopyConfirm(true);
+  };
+
+  const confirmCopy = () => {
+    if (pipelineId) {
+      httpClient
+        .copyPipeline(pipelineId)
+        .then(() => {
+          onFinish();
+          toast.success(t('common.copySuccess'));
+          setShowCopyConfirm(false);
+          onCancel();
+        })
+        .catch((err) => {
+          toast.error(t('pipelines.createError') + err.msg);
         });
     }
   };
 
   return (
     <>
-      <div className="!max-w-[70vw] max-w-6xl h-full p-0 flex flex-col bg-white">
+      <div className="!max-w-[70vw] max-w-6xl h-full p-0 flex flex-col bg-white dark:bg-black">
         <Form {...form}>
           <form
             id="pipeline-form"
@@ -365,22 +431,41 @@ export default function PipelineFormComponent({
                     >
                       {formLabel.name === 'basic' && (
                         <div className="space-y-6">
-                          <FormField
-                            control={form.control}
-                            name="basic.name"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>
-                                  {t('common.name')}
-                                  <span className="text-red-500">*</span>
-                                </FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                          {/* Name and Emoji in same row */}
+                          <div className="flex gap-4 items-start">
+                            <FormField
+                              control={form.control}
+                              name="basic.name"
+                              render={({ field }) => (
+                                <FormItem className="flex-1">
+                                  <FormLabel>
+                                    {t('common.name')}
+                                    <span className="text-red-500">*</span>
+                                  </FormLabel>
+                                  <FormControl>
+                                    <Input {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="basic.emoji"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>{t('common.icon')}</FormLabel>
+                                  <FormControl>
+                                    <EmojiPicker
+                                      value={field.value}
+                                      onChange={field.onChange}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
 
                           <FormField
                             control={form.control}
@@ -447,7 +532,14 @@ export default function PipelineFormComponent({
           </form>
           {/* 按钮栏移到 Tabs 外部，始终固定底部 */}
           {showButtons && (
-            <div className="flex justify-end gap-2 pt-4 border-t mb-0 bg-white sticky bottom-0 z-10">
+            <div className="flex justify-end items-center gap-2 pt-4 border-t mb-0 bg-white dark:bg-black sticky bottom-0 z-10">
+              {isEditMode && hasUnsavedChanges && (
+                <div className="text-amber-600 dark:text-amber-400 text-sm flex items-center gap-1.5 mr-auto">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  {t('pipelines.unsavedChanges')}
+                </div>
+              )}
+
               {isEditMode && !isDefaultPipeline && (
                 <Button
                   type="button"
@@ -463,6 +555,18 @@ export default function PipelineFormComponent({
                   {t('pipelines.defaultPipelineCannotDelete')}
                 </div>
               )}
+
+              {isEditMode && (
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={handleCopy}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {t('common.copy')}
+                </Button>
+              )}
+
               <Button type="submit" form="pipeline-form">
                 {isEditMode ? t('common.save') : t('common.submit')}
               </Button>
@@ -491,6 +595,22 @@ export default function PipelineFormComponent({
             <Button variant="destructive" onClick={confirmDelete}>
               {t('common.confirmDelete')}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 复制确认对话框 */}
+      <Dialog open={showCopyConfirm} onOpenChange={setShowCopyConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('pipelines.copyConfirmTitle')}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">{t('pipelines.copyConfirmation')}</div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCopyConfirm(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={confirmCopy}>{t('common.confirm')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

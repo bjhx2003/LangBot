@@ -6,10 +6,20 @@
   box-shadow: 0px 2px 2px 0 rgba(0, 0, 0, 0.2);
   padding: 1.2rem;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+:global(.dark) .cardContainer {
+  background-color: #1f1f22;
+  box-shadow: 0;
 }
 
 .cardContainer:hover {
   box-shadow: 0px 2px 8px 0 rgba(0, 0, 0, 0.1);
+}
+
+:global(.dark) .cardContainer:hover {
+  box-shadow: 0;
 }
 
 .iconBasicInfoContainer {
@@ -25,7 +35,7 @@
   width: 4rem;
   height: 4rem;
   margin: 0.2rem;
-  /* border-radius: 50%; */
+  border-radius: 8%;
 }
 
 .basicInfoContainer {
@@ -47,6 +57,11 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: #1a1a1a;
+}
+
+:global(.dark) .basicInfoName {
+  color: #f0f0f0;
 }
 
 .basicInfoDescription {
@@ -56,6 +71,10 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+:global(.dark) .basicInfoDescription {
+  color: #888888;
 }
 
 .basicInfoAdapterContainer {
@@ -71,10 +90,18 @@
   color: #626262;
 }
 
+:global(.dark) .basicInfoAdapterIcon {
+  color: #a0a0a0;
+}
+
 .basicInfoAdapterLabel {
   font-size: 1.2rem;
   font-weight: 500;
   color: #626262;
+}
+
+:global(.dark) .basicInfoAdapterLabel {
+  color: #a0a0a0;
 }
 
 .basicInfoPipelineContainer {
@@ -90,10 +117,18 @@
   margin-top: 0.2rem;
 }
 
+:global(.dark) .basicInfoPipelineIcon {
+  color: #a0a0a0;
+}
+
 .basicInfoPipelineLabel {
   font-size: 1.2rem;
   font-weight: 500;
   color: #626262;
+}
+
+:global(.dark) .basicInfoPipelineLabel {
+  color: #a0a0a0;
 }
 
 .bigText {

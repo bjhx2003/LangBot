@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: MessagePlatformAdapter
+metadata:
+  name: lark
+  label:
+    en_US: Lark
+    zh_Hans: 飞书
+  description:
+    en_US: Lark Adapter
+    zh_Hans: 飞书适配器，请查看文档了解使用方式
+  icon: lark.svg
+spec:
+  config:
+    - name: app_id
+      label:
+        en_US: App ID
+        zh_Hans: 应用ID
+      type: string
+      required: true
+      default: ""
+    - name: app_secret
+      label:
+        en_US: App Secret
+        zh_Hans: 应用密钥
+      type: string
+      required: true
+      default: ""
+    - name: bot_name
+      label:
+        en_US: Bot Name
+        zh_Hans: 机器人名称
+      description:
+        en_US: Must be the same as the name of the bot in Lark, otherwise the bot will not be able to receive messages in the group
+        zh_Hans: 必须与飞书机器人名称一致，否则机器人将无法在群内正常接收消息
+      type: string
+      required: true
+      default: ""
+    - name: enable-webhook
+      label:
+        en_US: Enable Webhook Mode
+        zh_Hans: 启用Webhook模式
+      description:
+        en_US: If enabled, the bot will use webhook mode to receive messages. Otherwise, it will use WS long connection mode
+        zh_Hans: 如果启用，机器人将使用 Webhook 模式接收消息。否则，将使用 WS 长连接模式
+      type: boolean
+      required: true
+      default: false
+    - name: encrypt-key
+      label:
+        en_US: Encrypt Key
+        zh_Hans: 加密密钥
+      description:
+        en_US: Only valid when webhook mode is enabled, please fill in the encrypt key
+        zh_Hans: 仅在启用 Webhook 模式时有效，请填写加密密钥
+      type: string
+      required: true
+      default: ""
+    - name: enable-stream-reply
+      label:
+        en_US: Enable Stream Reply Mode
+        zh_Hans: 启用飞书流式回复模式
+      description:
+        en_US: If enabled, the bot will use the stream of lark reply mode
+        zh_Hans: 如果启用，将使用飞书流式方式来回复内容
+      type: boolean
+      required: true
+      default: false
+    - name: app_type
+      label:
+        en_US: App Type
+        zh_Hans: 应用类型
+      description:
+        en_US: Default to self-built application, refer to https://open.feishu.cn/document/platform-overveiw/overview
+        zh_Hans: 默认为企业自建应用，参考 https://open.feishu.cn/document/platform-overveiw/overview
+      type: select
+      options:
+        - name: self
+          label:
+            en_US: Self-built Application
+            zh_Hans: 自建应用
+        - name: isv
+          label:
+            en_US: Store Application
+            zh_Hans: 商店应用
+      required: false
+      default: self
+    - name: bot_added_welcome
+      label:
+        en_US: Bot Welcome Message
+        zh_Hans: 机器人进群欢迎语
+      description:
+        en_US: Welcome message when the bot is added to a group, supports Markdown format
+        zh_Hans: 机器人进群欢迎语，支持 Markdown 格式
+      type: text
+      required: false
+      default: ""
+execution:
+  python:
+    path: ./lark.py
+    attr: LarkAdapter

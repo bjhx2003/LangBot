@@ -19,7 +19,7 @@ body:
   - type: textarea
     attributes:
       label: Reproduction steps
-      description: How to reproduce this problem, the more detailed the better; the more information you provide, the faster we will solve the problem. 【注意】请务必认真填写此部分，若不提供完整信息（如只有一两句话的概括），我们将不会回复！
+      description: How to reproduce this problem, the more detailed the better; the more information you provide, the faster we will solve the problem.
     validations:
       required: false
   - type: textarea

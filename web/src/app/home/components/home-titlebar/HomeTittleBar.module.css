@@ -17,6 +17,10 @@
   color: #585858;
 }
 
+:global(.dark) .titleText {
+  color: #e0e0e0;
+}
+
 .subtitleText {
   margin-left: 3.2rem;
   font-size: 0.8rem;
@@ -25,8 +29,16 @@
   align-items: center;
 }
 
+:global(.dark) .subtitleText {
+  color: #b0b0b0;
+}
+
 .helpLink {
   margin-left: 0.2rem;
   font-size: 0.8rem;
   color: #8b8b8b;
+}
+
+:global(.dark) .helpLink {
+  color: #a0a0a0;
 }

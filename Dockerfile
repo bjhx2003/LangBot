@@ -20,4 +20,4 @@ RUN apt update \
     && uv sync \
     && touch /.dockerenv
 
-CMD [ "uv", "run", "main.py" ]
+CMD [ "uv", "run", "--no-sync", "main.py" ]

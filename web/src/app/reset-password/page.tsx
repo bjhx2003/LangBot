@@ -33,6 +33,7 @@ import { Mail, Lock, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import Link from 'next/link';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const REGEXP_ONLY_DIGITS_AND_CHARS = /^[0-9a-zA-Z]+$/;
 
@@ -69,13 +70,11 @@ export default function ResetPassword() {
     setIsResetting(true);
     httpClient
       .resetPassword(email, recoveryKey, newPassword)
-      .then((res) => {
-        console.log('reset password success: ', res);
+      .then(() => {
         toast.success(t('resetPassword.resetSuccess'));
         router.push('/login');
       })
-      .catch((err) => {
-        console.log('reset password error: ', err);
+      .catch(() => {
         toast.error(t('resetPassword.resetFailed'));
       })
       .finally(() => {
@@ -84,17 +83,18 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Card className="w-[375px]">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-neutral-900">
+      <Card className="w-[375px] shadow-lg dark:shadow-white/10">
         <CardHeader>
           <div className="flex justify-between items-center mb-6">
             <Link
               href="/login"
-              className="flex items-center text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               {t('resetPassword.backToLogin')}
             </Link>
+            <ThemeToggle />
           </div>
           <CardTitle className="text-2xl text-center">
             {t('resetPassword.title')}

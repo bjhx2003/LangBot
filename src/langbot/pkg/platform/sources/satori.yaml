@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: MessagePlatformAdapter
+metadata:
+  name: satori
+  label:
+    en_US: Satori
+    zh_Hans: Satori
+  description:
+    en_US: SatoriAdapter
+    zh_Hans: 古明地觉协议适配器
+  icon: satori.png
+spec:
+  config:
+    - name: platform
+      label:
+        en_US: Platform
+        zh_Hans: 平台名称
+      type: string
+      required: true
+      default: "llonebot"
+      description:
+        en_US: The platform name (e.g., llonebot, discord, telegram)
+        zh_Hans: 平台名称（如 llonebot, discord, telegram）
+    - name: host
+      label:
+        en_US: Host
+        zh_Hans: 主机地址
+      type: string
+      required: true
+      default: "127.0.0.1"
+      description:
+        en_US: The host address of LLOneBot Satori server (e.g., 127.0.0.1, localhost, 192.168.1.100)
+        zh_Hans: LLOneBot Satori服务器的主机地址（如 127.0.0.1, localhost, 192.168.1.100）
+    - name: port
+      label:
+        en_US: Port
+        zh_Hans: 监听端口
+      type: integer
+      required: true
+      default: 5600
+    - name: satori_api_base_url
+      label:
+        en_US: Satori API Endpoint
+        zh_Hans: Satori API 终结点
+      type: string
+      required: true
+      default: "http://localhost:5600/v1"
+    - name: satori_endpoint
+      label:
+        en_US: Satori WebSocket Endpoint
+        zh_Hans: Satori WebSocket 终结点
+      type: string
+      required: true
+      default: "ws://localhost:5600/v1/events"
+    - name: token
+      label:
+        en_US: Token
+        zh_Hans: 令牌
+      type: string
+      required: true
+      default: ""
+execution:
+  python:
+    path: ./satori.py
+    attr: SatoriAdapter

@@ -23,28 +23,9 @@ export const sidebarConfigList = [
     route: '/home/bots',
     description: t('bots.description'),
     helpLink: {
-      en_US: 'https://docs.langbot.app/en/deploy/platforms/readme.html',
-      zh_Hans: 'https://docs.langbot.app/zh/deploy/platforms/readme.html',
-    },
-  }),
-  new SidebarChildVO({
-    id: 'models',
-    name: t('models.title'),
-    icon: (
-      <svg
-        className={`${styles.sidebarChildIcon}`}
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-      >
-        <path d="M10.6144 17.7956C10.277 18.5682 9.20776 18.5682 8.8704 17.7956L7.99275 15.7854C7.21171 13.9966 5.80589 12.5726 4.0523 11.7942L1.63658 10.7219C.868536 10.381.868537 9.26368 1.63658 8.92276L3.97685 7.88394C5.77553 7.08552 7.20657 5.60881 7.97427 3.75892L8.8633 1.61673C9.19319.821767 10.2916.821765 10.6215 1.61673L11.5105 3.75894C12.2782 5.60881 13.7092 7.08552 15.5079 7.88394L17.8482 8.92276C18.6162 9.26368 18.6162 10.381 17.8482 10.7219L15.4325 11.7942C13.6789 12.5726 12.2731 13.9966 11.492 15.7854L10.6144 17.7956ZM4.53956 9.82234C6.8254 10.837 8.68402 12.5048 9.74238 14.7996 10.8008 12.5048 12.6594 10.837 14.9452 9.82234 12.6321 8.79557 10.7676 7.04647 9.74239 4.71088 8.71719 7.04648 6.85267 8.79557 4.53956 9.82234ZM19.4014 22.6899 19.6482 22.1242C20.0882 21.1156 20.8807 20.3125 21.8695 19.8732L22.6299 19.5353C23.0412 19.3526 23.0412 18.7549 22.6299 18.5722L21.9121 18.2532C20.8978 17.8026 20.0911 16.9698 19.6586 15.9269L19.4052 15.3156C19.2285 14.8896 18.6395 14.8896 18.4628 15.3156L18.2094 15.9269C17.777 16.9698 16.9703 17.8026 15.956 18.2532L15.2381 18.5722C14.8269 18.7549 14.8269 19.3526 15.2381 19.5353L15.9985 19.8732C16.9874 20.3125 17.7798 21.1156 18.2198 22.1242L18.4667 22.6899C18.6473 23.104 19.2207 23.104 19.4014 22.6899ZM18.3745 19.0469 18.937 18.4883 19.4878 19.0469 18.937 19.5898 18.3745 19.0469Z"></path>
-      </svg>
-    ),
-    route: '/home/models',
-    description: t('models.description'),
-    helpLink: {
-      en_US: 'https://docs.langbot.app/en/deploy/models/readme.html',
-      zh_Hans: 'https://docs.langbot.app/zh/deploy/models/readme.html',
+      en_US: 'https://docs.langbot.app/en/usage/platforms/readme.html',
+      zh_Hans: 'https://docs.langbot.app/zh/usage/platforms/readme.html',
+      ja_JP: 'https://docs.langbot.app/ja/usage/platforms/readme.html',
     },
   }),
   new SidebarChildVO({
@@ -63,8 +44,49 @@ export const sidebarConfigList = [
     route: '/home/pipelines',
     description: t('pipelines.description'),
     helpLink: {
-      en_US: 'https://docs.langbot.app/en/deploy/pipelines/readme.html',
-      zh_Hans: 'https://docs.langbot.app/zh/deploy/pipelines/readme.html',
+      en_US: 'https://docs.langbot.app/en/usage/pipelines/readme.html',
+      zh_Hans: 'https://docs.langbot.app/zh/usage/pipelines/readme.html',
+      ja_JP: 'https://docs.langbot.app/ja/usage/pipelines/readme.html',
+    },
+  }),
+  new SidebarChildVO({
+    id: 'monitoring',
+    name: t('monitoring.title'),
+    icon: (
+      <svg
+        className={`${styles.sidebarChildIcon}`}
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
+        <path d="M2 3.9934C2 3.44476 2.45531 3 2.9918 3H21.0082C21.556 3 22 3.44495 22 3.9934V20.0066C22 20.5552 21.5447 21 21.0082 21H2.9918C2.44405 21 2 20.5551 2 20.0066V3.9934ZM4 5V19H20V5H4ZM6 7H18V9H6V7ZM6 11H18V13H6V11ZM6 15H12V17H6V15Z"></path>
+      </svg>
+    ),
+    route: '/home/monitoring',
+    description: t('monitoring.description'),
+    helpLink: {
+      en_US: 'https://docs.langbot.app/en/features/monitoring.html',
+      zh_Hans: 'https://docs.langbot.app/zh/features/monitoring.html',
+    },
+  }),
+  new SidebarChildVO({
+    id: 'knowledge',
+    name: t('knowledge.title'),
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
+        <path d="M3 18.5V5C3 3.34315 4.34315 2 6 2H20C20.5523 2 21 2.44772 21 3V21C21 21.5523 20.5523 22 20 22H6.5C4.567 22 3 20.433 3 18.5ZM19 20V17H6.5C5.67157 17 5 17.6716 5 18.5C5 19.3284 5.67157 20 6.5 20H19ZM10 4H6C5.44772 4 5 4.44772 5 5V15.3368C5.45463 15.1208 5.9632 15 6.5 15H19V4H17V12L13.5 10L10 12V4Z"></path>
+      </svg>
+    ),
+    route: '/home/knowledge',
+    description: t('knowledge.description'),
+    helpLink: {
+      en_US: 'https://docs.langbot.app/en/usage/knowledge/readme.html',
+      zh_Hans: 'https://docs.langbot.app/zh/usage/knowledge/readme.html',
+      ja_JP: 'https://docs.langbot.app/ja/usage/knowledge/readme.html',
     },
   }),
   new SidebarChildVO({
@@ -83,8 +105,9 @@ export const sidebarConfigList = [
     route: '/home/plugins',
     description: t('plugins.description'),
     helpLink: {
-      en_US: 'https://docs.langbot.app/en/plugin/plugin-intro.html',
-      zh_Hans: 'https://docs.langbot.app/zh/plugin/plugin-intro.html',
+      en_US: 'https://docs.langbot.app/en/usage/plugin/plugin-intro.html',
+      zh_Hans: 'https://docs.langbot.app/zh/usage/plugin/plugin-intro.html',
+      ja_JP: 'https://docs.langbot.app/ja/usage/plugin/plugin-intro.html',
     },
   }),
 ];

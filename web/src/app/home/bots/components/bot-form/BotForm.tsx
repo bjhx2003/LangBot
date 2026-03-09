@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   IChooseAdapterEntity,
   IPipelineEntity,
@@ -19,6 +19,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { Copy, Check } from 'lucide-react';
 
 import {
   Dialog,
@@ -47,7 +48,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { i18nObj } from '@/i18n/I18nProvider';
+import { extractI18nObject } from '@/i18n/I18nProvider';
+import { CustomApiError } from '@/app/infra/entities/common';
 
 const getFormSchema = (t: (key: string) => string) =>
   z.object({
@@ -64,17 +66,13 @@ const getFormSchema = (t: (key: string) => string) =>
 export default function BotForm({
   initBotId,
   onFormSubmit,
-  onFormCancel,
   onBotDeleted,
   onNewBotCreated,
-  hideButtons = false,
 }: {
   initBotId?: string;
   onFormSubmit: (value: z.infer<ReturnType<typeof getFormSchema>>) => void;
-  onFormCancel: () => void;
   onBotDeleted: () => void;
   onNewBotCreated: (botId: string) => void;
-  hideButtons?: boolean;
 }) {
   const { t } = useTranslation();
   const formSchema = getFormSchema(t);
@@ -115,12 +113,117 @@ export default function BotForm({
   const [dynamicFormConfigList, setDynamicFormConfigList] = useState<
     IDynamicFormItemSchema[]
   >([]);
+  const [filteredDynamicFormConfigList, setFilteredDynamicFormConfigList] =
+    useState<IDynamicFormItemSchema[]>([]);
   const [, setIsLoading] = useState<boolean>(false);
+  const [webhookUrl, setWebhookUrl] = useState<string>('');
+  const webhookInputRef = React.useRef<HTMLInputElement>(null);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  // Watch adapter and adapter_config for filtering
+  const currentAdapter = form.watch('adapter');
+  const currentAdapterConfig = form.watch('adapter_config');
+
+  // Serialize adapter_config to a stable string so it can be used as a
+  // useEffect dependency without triggering on every render.  form.watch()
+  // returns a new object reference each time, which would otherwise cause
+  // the filtering effect below to loop indefinitely.
+  const adapterConfigJson = JSON.stringify(currentAdapterConfig);
 
   useEffect(() => {
     setBotFormValues();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Filter dynamic form config list based on enable-webhook status for Lark adapter
+  useEffect(() => {
+    if (currentAdapter === 'lark') {
+      const enableWebhook = currentAdapterConfig?.['enable-webhook'];
+      if (enableWebhook === false) {
+        // Hide encrypt-key field when webhook is disabled
+        setFilteredDynamicFormConfigList(
+          dynamicFormConfigList.filter(
+            (config) => config.name !== 'encrypt-key',
+          ),
+        );
+      } else {
+        // Show all fields when webhook is enabled or undefined
+        setFilteredDynamicFormConfigList(dynamicFormConfigList);
+      }
+    } else {
+      // For non-Lark adapters, show all fields
+      setFilteredDynamicFormConfigList(dynamicFormConfigList);
+    }
+  }, [currentAdapter, adapterConfigJson, dynamicFormConfigList]);
+
+  // 复制到剪贴板的辅助函数 - 使用页面上的真实input元素
+  const copyToClipboard = () => {
+    console.log('[Copy] Attempting to copy from input element');
+
+    const inputElement = webhookInputRef.current;
+    if (!inputElement) {
+      console.error('[Copy] Input element not found');
+      return;
+    }
+
+    try {
+      // 确保input元素可见且未被禁用
+      inputElement.disabled = false;
+      inputElement.readOnly = false;
+
+      // 聚焦并选中所有文本
+      inputElement.focus();
+      inputElement.select();
+
+      // 尝试使用现代API
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        console.log(
+          '[Copy] Using Clipboard API with input value:',
+          inputElement.value,
+        );
+        navigator.clipboard
+          .writeText(inputElement.value)
+          .then(() => {
+            console.log('[Copy] Clipboard API success');
+            inputElement.blur(); // 取消选中
+            inputElement.readOnly = true;
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          })
+          .catch((err) => {
+            console.error(
+              '[Copy] Clipboard API failed, trying execCommand:',
+              err,
+            );
+            // 降级到execCommand
+            const successful = document.execCommand('copy');
+            console.log('[Copy] execCommand result:', successful);
+            inputElement.blur();
+            inputElement.readOnly = true;
+            if (successful) {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }
+          });
+      } else {
+        // 直接使用execCommand
+        console.log(
+          '[Copy] Using execCommand with input value:',
+          inputElement.value,
+        );
+        const successful = document.execCommand('copy');
+        console.log('[Copy] execCommand result:', successful);
+        inputElement.blur();
+        inputElement.readOnly = true;
+        if (successful) {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      }
+    } catch (err) {
+      console.error('[Copy] Copy failed:', err);
+      inputElement.readOnly = true;
+    }
+  };
 
   function setBotFormValues() {
     initBotFormComponent().then(() => {
@@ -134,15 +237,24 @@ export default function BotForm({
             form.setValue('adapter_config', val.adapter_config);
             form.setValue('enable', val.enable);
             form.setValue('use_pipeline_uuid', val.use_pipeline_uuid || '');
-            console.log('form', form.getValues());
             handleAdapterSelect(val.adapter);
             // dynamicForm.setFieldsValue(val.adapter_config);
+
+            // 设置 webhook 地址（如果有）
+            if (val.webhook_full_url) {
+              setWebhookUrl(val.webhook_full_url);
+            } else {
+              setWebhookUrl('');
+            }
           })
           .catch((err) => {
-            toast.error(t('bots.getBotConfigError') + err.message);
+            toast.error(
+              t('bots.getBotConfigError') + (err as CustomApiError).msg,
+            );
           });
       } else {
         form.reset();
+        setWebhookUrl('');
       }
     });
   }
@@ -150,7 +262,6 @@ export default function BotForm({
   async function initBotFormComponent() {
     // 初始化流水线列表
     const pipelinesRes = await httpClient.getPipelines();
-    console.log('rawPipelineList', pipelinesRes);
     setPipelineNameList(
       pipelinesRes.pipelines.map((item) => {
         return {
@@ -162,11 +273,10 @@ export default function BotForm({
 
     // 拉取adapter
     const adaptersRes = await httpClient.getAdapters();
-    console.log('rawAdapterList', adaptersRes);
     setAdapterNameList(
       adaptersRes.adapters.map((item) => {
         return {
-          label: i18nObj(item.label),
+          label: extractI18nObject(item.label),
           value: item.name,
         };
       }),
@@ -187,7 +297,7 @@ export default function BotForm({
     setAdapterDescriptionList(
       adaptersRes.adapters.reduce(
         (acc, item) => {
-          acc[item.name] = i18nObj(item.description);
+          acc[item.name] = extractI18nObject(item.description);
           return acc;
         },
         {} as Record<string, string>,
@@ -208,15 +318,18 @@ export default function BotForm({
               name: item.name,
               required: item.required,
               type: parseDynamicFormItemType(item.type),
+              options: item.options,
+              show_if: item.show_if,
             }),
         ),
       );
     });
     setAdapterNameToDynamicConfigMap(adapterNameToDynamicConfigMap);
   }
+
   async function getBotConfig(
     botId: string,
-  ): Promise<z.infer<typeof formSchema>> {
+  ): Promise<z.infer<typeof formSchema> & { webhook_full_url?: string }> {
     return new Promise((resolve, reject) => {
       httpClient
         .getBot(botId)
@@ -229,6 +342,10 @@ export default function BotForm({
             adapter_config: bot.adapter_config,
             enable: bot.enable ?? true,
             use_pipeline_uuid: bot.use_pipeline_uuid ?? '',
+            webhook_full_url: bot.adapter_runtime_values
+              ? ((bot.adapter_runtime_values as Record<string, unknown>)
+                  .webhook_full_url as string)
+              : undefined,
           });
         })
         .catch((err) => {
@@ -257,12 +374,10 @@ export default function BotForm({
   }
 
   // 只有通过外层固定表单验证才会走到这里，真正的提交逻辑在这里
-  function onDynamicFormSubmit(value: object) {
+  function onDynamicFormSubmit() {
     setIsLoading(true);
-    console.log('set loading', true);
     if (initBotId) {
       // 编辑提交
-      // console.log('submit edit', form.getFieldsValue(), value);
       const updateBot: Bot = {
         uuid: initBotId,
         name: form.getValues().name,
@@ -274,13 +389,12 @@ export default function BotForm({
       };
       httpClient
         .updateBot(initBotId, updateBot)
-        .then((res) => {
-          console.log('update bot success', res);
+        .then(() => {
           onFormSubmit(form.getValues());
           toast.success(t('bots.saveSuccess'));
         })
         .catch((err) => {
-          toast.error(t('bots.saveError') + err.message);
+          toast.error(t('bots.saveError') + err.msg);
         })
         .finally(() => {
           setIsLoading(false);
@@ -289,7 +403,6 @@ export default function BotForm({
         });
     } else {
       // 创建提交
-      console.log('submit create', form.getValues(), value);
       const newBot: Bot = {
         name: form.getValues().name,
         description: form.getValues().description,
@@ -299,7 +412,6 @@ export default function BotForm({
       httpClient
         .createBot(newBot)
         .then((res) => {
-          console.log('create bot success', res);
           toast.success(t('bots.createSuccess'));
           initBotId = res.uuid;
 
@@ -308,7 +420,7 @@ export default function BotForm({
           onNewBotCreated(res.uuid);
         })
         .catch((err) => {
-          toast.error(t('bots.createError') + err.message);
+          toast.error(t('bots.createError') + err.msg);
         })
         .finally(() => {
           setIsLoading(false);
@@ -327,7 +439,7 @@ export default function BotForm({
           toast.success(t('bots.deleteSuccess'));
         })
         .catch((err) => {
-          toast.error(t('bots.deleteError') + err.message);
+          toast.error(t('bots.deleteError') + err.msg);
         });
     }
   }
@@ -372,51 +484,93 @@ export default function BotForm({
           <div className="space-y-4">
             {/* 是否启用 & 绑定流水线  仅在编辑模式 */}
             {initBotId && (
-              <div className="flex items-center gap-6">
-                <FormField
-                  control={form.control}
-                  name="enable"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col justify-start gap-[0.8rem] h-[3.8rem]">
-                      <FormLabel>{t('common.enable')}</FormLabel>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
+              <>
+                <div className="flex items-center gap-6">
+                  <FormField
+                    control={form.control}
+                    name="enable"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col justify-start gap-[0.8rem] h-[3.8rem]">
+                        <FormLabel>{t('common.enable')}</FormLabel>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="use_pipeline_uuid"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col justify-start gap-[0.8rem] h-[3.8rem]">
-                      <FormLabel>{t('bots.bindPipeline')}</FormLabel>
-                      <FormControl>
-                        <Select onValueChange={field.onChange} {...field}>
-                          <SelectTrigger>
-                            <SelectValue
-                              placeholder={t('bots.selectPipeline')}
-                            />
-                          </SelectTrigger>
-                          <SelectContent className="fixed z-[1000]">
-                            <SelectGroup>
-                              {pipelineNameList.map((item) => (
-                                <SelectItem key={item.value} value={item.value}>
-                                  {item.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
+                  <FormField
+                    control={form.control}
+                    name="use_pipeline_uuid"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col justify-start gap-[0.8rem] h-[3.8rem]">
+                        <FormLabel>{t('bots.bindPipeline')}</FormLabel>
+                        <FormControl>
+                          <Select onValueChange={field.onChange} {...field}>
+                            <SelectTrigger className="bg-[#ffffff] dark:bg-[#2a2a2e]">
+                              <SelectValue
+                                placeholder={t('bots.selectPipeline')}
+                              />
+                            </SelectTrigger>
+                            <SelectContent className="fixed z-[1000]">
+                              <SelectGroup>
+                                {pipelineNameList.map((item) => (
+                                  <SelectItem
+                                    key={item.value}
+                                    value={item.value}
+                                  >
+                                    {item.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Webhook 地址显示（统一 Webhook 模式） */}
+                {webhookUrl &&
+                  (currentAdapter !== 'lark' ||
+                    currentAdapterConfig?.['enable-webhook'] !== false) && (
+                    <FormItem>
+                      <FormLabel>{t('bots.webhookUrl')}</FormLabel>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          ref={webhookInputRef}
+                          value={webhookUrl}
+                          readOnly
+                          className="flex-1 bg-gray-50 dark:bg-gray-900"
+                          onClick={(e) => {
+                            // 点击输入框时自动全选
+                            (e.target as HTMLInputElement).select();
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={copyToClipboard}
+                        >
+                          {copied ? (
+                            <Check className="h-4 w-4 text-green-600 mr-2" />
+                          ) : (
+                            <Copy className="h-4 w-4 mr-2" />
+                          )}
+                          {t('common.copy')}
+                        </Button>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {t('bots.webhookUrlHint')}
+                      </p>
                     </FormItem>
                   )}
-                />
-              </div>
+              </>
             )}
 
             <FormField
@@ -470,7 +624,7 @@ export default function BotForm({
                         }}
                         value={field.value}
                       >
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-[180px] bg-[#ffffff] dark:bg-[#2a2a2e]">
                           <SelectValue placeholder={t('bots.selectAdapter')} />
                         </SelectTrigger>
                         <SelectContent className="fixed z-[1000]">
@@ -495,7 +649,7 @@ export default function BotForm({
                 <img
                   src={adapterIconList[form.watch('adapter')]}
                   alt="adapter icon"
-                  className="w-12 h-12"
+                  className="w-12 h-12 rounded-[8%]"
                 />
                 <div className="flex flex-col gap-1">
                   <div className="font-medium">
@@ -512,13 +666,13 @@ export default function BotForm({
               </div>
             )}
 
-            {showDynamicForm && dynamicFormConfigList.length > 0 && (
+            {showDynamicForm && filteredDynamicFormConfigList.length > 0 && (
               <div className="space-y-4">
                 <div className="text-lg font-medium">
                   {t('bots.adapterConfig')}
                 </div>
                 <DynamicFormComponent
-                  itemConfigList={dynamicFormConfigList}
+                  itemConfigList={filteredDynamicFormConfigList}
                   initialValues={form.watch('adapter_config')}
                   onSubmit={(values) => {
                     form.setValue('adapter_config', values);
@@ -527,45 +681,6 @@ export default function BotForm({
               </div>
             )}
           </div>
-
-          {!hideButtons && (
-            <div className="sticky bottom-0 left-0 right-0 bg-background border-t p-4 mt-4">
-              <div className="flex justify-end gap-2">
-                {!initBotId && (
-                  <Button
-                    type="submit"
-                    onClick={form.handleSubmit(onDynamicFormSubmit)}
-                  >
-                    {t('common.submit')}
-                  </Button>
-                )}
-                {initBotId && (
-                  <>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      onClick={() => setShowDeleteConfirmModal(true)}
-                    >
-                      {t('common.delete')}
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={form.handleSubmit(onDynamicFormSubmit)}
-                    >
-                      {t('common.save')}
-                    </Button>
-                  </>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onFormCancel()}
-                >
-                  {t('common.cancel')}
-                </Button>
-              </div>
-            </div>
-          )}
         </form>
       </Form>
     </div>

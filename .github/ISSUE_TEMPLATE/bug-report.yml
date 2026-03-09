@@ -19,7 +19,7 @@ body:
   - type: textarea
     attributes:
       label: 复现步骤
-      description: 提供越多信息，我们会越快解决问题，建议多提供配置截图；**如果你不认真填写（只一两句话概括），我们会很生气并且立即关闭 issue 或两年后才回复你**
+      description: 提供越多信息，我们会越快解决问题，建议多提供配置截图；**如果涉及 Dify、n8n、Langflow 等外部平台，请提供应用的导出文件（如 Dify 应用的 DSL），我们将更快回复您。**
     validations:
       required: false
   - type: textarea

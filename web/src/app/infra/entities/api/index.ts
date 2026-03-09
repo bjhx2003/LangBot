@@ -1,7 +1,8 @@
 import { IDynamicFormItemSchema } from '@/app/infra/entities/form/dynamic';
 import { PipelineConfigTab } from '@/app/infra/entities/pipeline';
-import { I18nLabel } from '@/app/infra/entities/common';
+import { I18nObject } from '@/app/infra/entities/common';
 import { Message } from '@/app/infra/entities/message';
+import { Plugin, PluginV4 } from '@/app/infra/entities/plugin';
 
 export interface ApiResponse<T> {
   code: number;
@@ -23,11 +24,12 @@ export interface ApiRespProviderRequester {
 
 export interface Requester {
   name: string;
-  label: I18nLabel;
-  description: I18nLabel;
+  label: I18nObject;
+  description: I18nObject;
   icon?: string;
   spec: {
     config: IDynamicFormItemSchema[];
+    provider_category: string;
   };
 }
 
@@ -39,20 +41,49 @@ export interface ApiRespProviderLLMModel {
   model: LLMModel;
 }
 
-export interface LLMModel {
-  name: string;
-  description: string;
+export interface ModelProvider {
   uuid: string;
+  name: string;
   requester: string;
-  requester_config: {
-    base_url: string;
-    timeout: number;
-  };
-  extra_args?: object;
+  base_url: string;
   api_keys: string[];
+  llm_count?: number;
+  embedding_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ApiRespModelProviders {
+  providers: ModelProvider[];
+}
+
+export interface ApiRespModelProvider {
+  provider: ModelProvider;
+}
+
+export interface LLMModel {
+  uuid: string;
+  name: string;
+  provider_uuid: string;
+  provider?: ModelProvider;
   abilities?: string[];
-  // created_at: string;
-  // updated_at: string;
+  extra_args?: object;
+}
+
+export interface ApiRespProviderEmbeddingModels {
+  models: EmbeddingModel[];
+}
+
+export interface ApiRespProviderEmbeddingModel {
+  model: EmbeddingModel;
+}
+
+export interface EmbeddingModel {
+  uuid: string;
+  name: string;
+  provider_uuid: string;
+  provider?: ModelProvider;
+  extra_args?: object;
 }
 
 export interface ApiRespPipelines {
@@ -69,6 +100,7 @@ export interface Pipeline {
   is_default?: boolean;
   created_at?: string;
   updated_at?: string;
+  emoji?: string;
 }
 
 export interface ApiRespPlatformAdapters {
@@ -81,8 +113,8 @@ export interface ApiRespPlatformAdapter {
 
 export interface Adapter {
   name: string;
-  label: I18nLabel;
-  description: I18nLabel;
+  label: I18nObject;
+  description: I18nObject;
   icon?: string;
   spec: {
     config: IDynamicFormItemSchema[];
@@ -108,6 +140,72 @@ export interface Bot {
   use_pipeline_uuid?: string;
   created_at?: string;
   updated_at?: string;
+  adapter_runtime_values?: object;
+}
+
+export interface ApiRespKnowledgeBases {
+  bases: KnowledgeBase[];
+}
+
+export interface ApiRespKnowledgeBase {
+  base: KnowledgeBase;
+}
+
+export interface KnowledgeBase {
+  uuid?: string;
+  name: string;
+  description: string;
+  created_at?: string;
+  updated_at?: string;
+  emoji?: string;
+  // New unified fields
+  knowledge_engine_plugin_id?: string;
+  creation_settings?: Record<string, unknown>;
+  retrieval_settings?: Record<string, unknown>;
+  knowledge_engine?: KnowledgeEngineInfo;
+}
+
+// Knowledge Engine types
+export interface KnowledgeEngineInfo {
+  plugin_id: string | null;
+  name: I18nObject;
+  capabilities: string[];
+}
+
+export interface KnowledgeEngine {
+  plugin_id: string;
+  name: I18nObject;
+  description?: I18nObject;
+  capabilities: string[];
+  // Schema format: Array of form field definitions (IDynamicFormItemSchema-like)
+  // Each item: { name, label, type, required, default, description?, options? }
+  creation_schema?: unknown[];
+  retrieval_schema?: unknown[];
+}
+
+export interface ApiRespKnowledgeEngines {
+  engines: KnowledgeEngine[];
+}
+
+export interface ParserInfo {
+  plugin_id: string;
+  name: I18nObject;
+  description?: I18nObject;
+  supported_mime_types: string[];
+}
+
+export interface ApiRespParsers {
+  parsers: ParserInfo[];
+}
+
+export interface ApiRespKnowledgeBaseFiles {
+  files: KnowledgeBaseFile[];
+}
+
+export interface KnowledgeBaseFile {
+  uuid: string;
+  file_name: string;
+  status: string;
 }
 
 // plugins
@@ -119,22 +217,22 @@ export interface ApiRespPlugin {
   plugin: Plugin;
 }
 
-export interface Plugin {
-  author: string;
-  name: string;
-  description: I18nLabel;
-  label: I18nLabel;
-  version: string;
-  enabled: boolean;
-  priority: number;
-  status: string;
-  tools: object[];
-  event_handlers: object;
-  main_file: string;
-  pkg_path: string;
-  repository: string;
-  config_schema: IDynamicFormItemSchema[];
-}
+// export interface Plugin {
+//   author: string;
+//   name: string;
+//   description: I18nLabel;
+//   label: I18nLabel;
+//   version: string;
+//   enabled: boolean;
+//   priority: number;
+//   status: string;
+//   tools: object[];
+//   event_handlers: object;
+//   main_file: string;
+//   pkg_path: string;
+//   repository: string;
+//   config_schema: IDynamicFormItemSchema[];
+// }
 
 export interface ApiRespPluginConfig {
   config: object;
@@ -147,9 +245,27 @@ export interface PluginReorderElement {
 }
 
 // system
+export interface SystemLimitation {
+  max_bots: number;
+  max_pipelines: number;
+  max_extensions: number;
+}
+
 export interface ApiRespSystemInfo {
   debug: boolean;
   version: string;
+  edition: string;
+  cloud_service_url: string;
+  enable_marketplace: boolean;
+  allow_modify_login_info: boolean;
+  disable_models_service: boolean;
+  limitation: SystemLimitation;
+}
+
+export interface ApiRespPluginSystemStatus {
+  is_enable: boolean;
+  is_connected: boolean;
+  plugin_connector_error: string;
 }
 
 export interface ApiRespAsyncTasks {
@@ -181,26 +297,13 @@ export interface ApiRespUserToken {
   token: string;
 }
 
-export interface MarketPlugin {
-  ID: number;
-  CreatedAt: string; // ISO 8601 格式日期
-  UpdatedAt: string;
-  DeletedAt: string | null;
-  name: string;
-  author: string;
-  description: string;
-  repository: string; // GitHub 仓库路径
-  artifacts_path: string;
-  stars: number;
-  downloads: number;
-  status: 'initialized' | 'mounted'; // 可根据实际状态值扩展联合类型
-  synced_at: string;
-  pushed_at: string; // 最后一次代码推送时间
+export interface ApiRespMarketplacePlugins {
+  plugins: PluginV4[];
+  total: number;
 }
 
-export interface MarketPluginResponse {
-  plugins: MarketPlugin[];
-  total: number;
+export interface ApiRespMarketplacePluginDetail {
+  plugin: PluginV4;
 }
 
 interface GetPipelineConfig {
@@ -220,6 +323,7 @@ interface GetPipeline {
   stages: string[];
   updated_at: string;
   uuid: string;
+  emoji?: string;
 }
 
 export interface GetPipelineResponseData {
@@ -236,4 +340,108 @@ export interface ApiRespWebChatMessage {
 
 export interface ApiRespWebChatMessages {
   messages: Message[];
+}
+
+export interface RetrieveResultContent {
+  type: 'text' | 'image_url' | 'image_base64' | 'file_url';
+  text?: string;
+  file_name?: string;
+  file_url?: string;
+  image_url?: string;
+  image_base64?: string;
+}
+
+export interface RetrieveResult {
+  id: string;
+  content?: RetrieveResultContent[];
+  metadata: {
+    file_id?: string;
+    text?: string;
+    uuid?: string;
+    [key: string]: unknown;
+  };
+  distance: number;
+}
+
+export interface ApiRespKnowledgeBaseRetrieve {
+  results: RetrieveResult[];
+}
+
+// MCP
+export interface ApiRespMCPServers {
+  servers: MCPServer[];
+}
+
+export interface ApiRespMCPServer {
+  server: MCPServer;
+}
+
+export interface MCPServerExtraArgsSSE {
+  url: string;
+  headers: Record<string, string>;
+  timeout: number;
+  ssereadtimeout: number;
+}
+
+export interface MCPServerExtraArgsStdio {
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+}
+
+export interface MCPServerExtraArgsHttp {
+  url: string;
+  headers: Record<string, string>;
+  timeout: number;
+}
+
+export enum MCPSessionStatus {
+  CONNECTING = 'connecting',
+  CONNECTED = 'connected',
+  ERROR = 'error',
+}
+
+export interface MCPServerRuntimeInfo {
+  status: MCPSessionStatus;
+  error_message?: string;
+  tool_count: number;
+  tools: MCPTool[];
+}
+
+export type MCPServer =
+  | {
+      uuid?: string;
+      name: string;
+      mode: 'sse';
+      enable: boolean;
+      extra_args: MCPServerExtraArgsSSE;
+      runtime_info?: MCPServerRuntimeInfo;
+      created_at?: string;
+      updated_at?: string;
+    }
+  | {
+      uuid?: string;
+      name: string;
+      mode: 'http';
+      enable: boolean;
+      extra_args: MCPServerExtraArgsHttp;
+      runtime_info?: MCPServerRuntimeInfo;
+      created_at?: string;
+      updated_at?: string;
+    }
+  | {
+      uuid?: string;
+      name: string;
+      mode: 'stdio';
+      enable: boolean;
+      extra_args: MCPServerExtraArgsStdio;
+      runtime_info?: MCPServerRuntimeInfo;
+      created_at?: string;
+      updated_at?: string;
+    };
+
+export interface MCPTool {
+  name: string;
+  description: string;
+  parameters?: object;
 }

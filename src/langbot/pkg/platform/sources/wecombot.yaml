@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: MessagePlatformAdapter
+metadata:
+  name: wecombot
+  label:
+    en_US: WeComBot
+    zh_Hans: 企业微信智能机器人
+  description:
+    en_US: WeComBot Adapter
+    zh_Hans: 企业微信智能机器人适配器，请查看文档了解使用方式
+  icon: wecombot.png
+spec:
+  config:
+    - name: Corpid
+      label:
+        en_US: Corpid
+        zh_Hans: 企业ID
+      type: string
+      required: true
+      default: ""
+    - name: Token
+      label:
+        en_US: Token
+        zh_Hans: 令牌 (Token)
+      type: string
+      required: true
+      default: ""
+    - name: EncodingAESKey
+      label:
+        en_US: EncodingAESKey
+        zh_Hans: 消息加解密密钥 (EncodingAESKey)
+      type: string
+      required: true
+      default: ""
+    - name: BotId
+      label:
+        en_US: BotId
+        zh_Hans: 机器人ID
+      type: string
+      required: false
+      default: ""
+execution:
+  python:
+    path: ./wecombot.py
+    attr: WecomBotAdapter

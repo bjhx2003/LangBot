@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +19,8 @@ import {
 } from '@/components/ui/sidebar';
 import PipelineFormComponent from './components/pipeline-form/PipelineFormComponent';
 import DebugDialog from './components/debug-dialog/DebugDialog';
-import { PipelineFormEntity } from '@/app/infra/entities/pipeline';
+import PipelineExtension from './components/pipeline-extensions/PipelineExtension';
+import PipelineMonitoringTab from './components/monitoring-tab/PipelineMonitoringTab';
 
 interface PipelineDialogProps {
   open: boolean;
@@ -26,32 +28,31 @@ interface PipelineDialogProps {
   pipelineId?: string;
   isEditMode?: boolean;
   isDefaultPipeline?: boolean;
-  initValues?: PipelineFormEntity;
   onFinish: () => void;
   onNewPipelineCreated?: (pipelineId: string) => void;
   onDeletePipeline: () => void;
   onCancel: () => void;
 }
 
-type DialogMode = 'config' | 'debug';
+type DialogMode = 'config' | 'debug' | 'extensions' | 'monitoring';
 
 export default function PipelineDialog({
   open,
   onOpenChange,
   pipelineId: propPipelineId,
   isEditMode = false,
-  isDefaultPipeline = false,
-  initValues,
   onFinish,
   onNewPipelineCreated,
   onDeletePipeline,
   onCancel,
 }: PipelineDialogProps) {
   const { t } = useTranslation();
+  const router = useRouter();
   const [pipelineId, setPipelineId] = useState<string | undefined>(
     propPipelineId,
   );
   const [currentMode, setCurrentMode] = useState<DialogMode>('config');
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
 
   useEffect(() => {
     setPipelineId(propPipelineId);
@@ -85,6 +86,19 @@ export default function PipelineDialog({
       ),
     },
     {
+      key: 'extensions',
+      label: t('pipelines.extensions.title'),
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        >
+          <path d="M7 5C7 2.79086 8.79086 1 11 1C13.2091 1 15 2.79086 15 5H18C18.5523 5 19 5.44772 19 6V9C21.2091 9 23 10.7909 23 13C23 15.2091 21.2091 17 19 17V20C19 20.5523 18.5523 21 18 21H4C3.44772 21 3 20.5523 3 20V6C3 5.44772 3.44772 5 4 5H7ZM11 3C9.89543 3 9 3.89543 9 5C9 5.23554 9.0403 5.45952 9.11355 5.66675C9.22172 5.97282 9.17461 6.31235 8.98718 6.57739C8.79974 6.84243 8.49532 7 8.17071 7H5V19H17V15.8293C17 15.5047 17.1576 15.2003 17.4226 15.0128C17.6877 14.8254 18.0272 14.7783 18.3332 14.8865C18.5405 14.9597 18.7645 15 19 15C20.1046 15 21 14.1046 21 13C21 11.8954 20.1046 11 19 11C18.7645 11 18.5405 11.0403 18.3332 11.1135C18.0272 11.2217 17.6877 11.1746 17.4226 10.9872C17.1576 10.7997 17 10.4953 17 10.1707V7H13.8293C13.5047 7 13.2003 6.84243 13.0128 6.57739C12.8254 6.31235 12.7783 5.97282 12.8865 5.66675C12.9597 5.45952 13 5.23555 13 5C13 3.89543 12.1046 3 11 3Z"></path>
+        </svg>
+      ),
+    },
+    {
       key: 'debug',
       label: t('pipelines.debugChat'),
       icon: (
@@ -97,6 +111,19 @@ export default function PipelineDialog({
         </svg>
       ),
     },
+    {
+      key: 'monitoring',
+      label: t('pipelines.monitoring.title'),
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        >
+          <path d="M2 3.9934C2 3.44476 2.45531 3 2.9918 3H21.0082C21.556 3 22 3.44495 22 3.9934V20.0066C22 20.5552 21.5447 21 21.0082 21H2.9918C2.44405 21 2 20.5551 2 20.0066V3.9934ZM4 5V19H20V5H4ZM6 7H18V9H6V7ZM6 11H18V13H6V11ZM6 15H12V17H6V15Z"></path>
+        </svg>
+      ),
+    },
   ];
 
   const getDialogTitle = () => {
@@ -104,6 +131,12 @@ export default function PipelineDialog({
       return isEditMode
         ? t('pipelines.editPipeline')
         : t('pipelines.createPipeline');
+    }
+    if (currentMode === 'extensions') {
+      return t('pipelines.extensions.title');
+    }
+    if (currentMode === 'monitoring') {
+      return t('pipelines.monitoring.title');
     }
     return t('pipelines.debugDialog.title');
   };
@@ -119,8 +152,6 @@ export default function PipelineDialog({
             </DialogHeader>
             <div className="flex-1 overflow-y-auto px-6 pb-6">
               <PipelineFormComponent
-                initValues={initValues}
-                isDefaultPipeline={isDefaultPipeline}
                 onFinish={handleFinish}
                 onNewPipelineCreated={handleNewPipelineCreated}
                 isEditMode={isEditMode}
@@ -142,11 +173,11 @@ export default function PipelineDialog({
   // 编辑流水线时的对话框
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 !max-w-[50rem] h-[75vh] flex">
+      <DialogContent className="overflow-hidden p-0 !max-w-[80vw] h-[75vh] flex">
         <SidebarProvider className="items-start w-full flex h-full min-h-0">
           <Sidebar
             collapsible="none"
-            className="hidden md:flex h-full min-h-0 w-40 border-r bg-white"
+            className="hidden md:flex h-full min-h-0 w-40 border-r bg-white dark:bg-black"
           >
             <SidebarContent>
               <SidebarGroup>
@@ -173,19 +204,36 @@ export default function PipelineDialog({
           </Sidebar>
           <main className="flex flex-1 flex-col h-full min-h-0">
             <DialogHeader
-              className="px-6 pt-6 pb-4 shrink-0"
+              className="px-6 pt-6 pb-4 shrink-0 flex flex-row items-center justify-start"
               style={{ height: '4rem' }}
             >
               <DialogTitle>{getDialogTitle()}</DialogTitle>
+              {currentMode === 'debug' && (
+                <div className="flex items-center gap-2 ml-2">
+                  <div
+                    className={`w-2.5 h-2.5 rounded-full ${
+                      isWebSocketConnected ? 'bg-green-500' : 'bg-red-500'
+                    }`}
+                    title={
+                      isWebSocketConnected
+                        ? t('pipelines.debugDialog.connected')
+                        : t('pipelines.debugDialog.disconnected')
+                    }
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {isWebSocketConnected
+                      ? t('pipelines.debugDialog.connected')
+                      : t('pipelines.debugDialog.disconnected')}
+                  </span>
+                </div>
+              )}
             </DialogHeader>
             <div
-              className="flex-1 auto px-6 pb-4 w-full"
+              className="flex-1 overflow-y-auto px-6 pb-4 w-full"
               style={{ height: 'calc(100% - 4rem)' }}
             >
               {currentMode === 'config' && (
                 <PipelineFormComponent
-                  initValues={initValues}
-                  isDefaultPipeline={isDefaultPipeline}
                   onFinish={handleFinish}
                   onNewPipelineCreated={handleNewPipelineCreated}
                   isEditMode={isEditMode}
@@ -198,11 +246,27 @@ export default function PipelineDialog({
                   }}
                 />
               )}
+
+              {currentMode === 'extensions' && pipelineId && (
+                <PipelineExtension pipelineId={pipelineId} />
+              )}
+
               {currentMode === 'debug' && pipelineId && (
                 <DebugDialog
                   open={true}
                   pipelineId={pipelineId}
                   isEmbedded={true}
+                  onConnectionStatusChange={setIsWebSocketConnected}
+                />
+              )}
+
+              {currentMode === 'monitoring' && pipelineId && (
+                <PipelineMonitoringTab
+                  pipelineId={pipelineId}
+                  onNavigateToMonitoring={() => {
+                    router.push(`/home/monitoring?pipelineId=${pipelineId}`);
+                    onOpenChange(false);
+                  }}
                 />
               )}
             </div>

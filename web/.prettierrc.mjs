@@ -15,7 +15,6 @@ const config = {
   singleQuote: true,
   // 大括号前后空格
   bracketSpacing: true,
-  attributeVerticalAlignment: 'auto',
   trailingComma: 'all',
 };
 
