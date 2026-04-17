@@ -109,6 +109,7 @@ class PreProcessor(stage.PipelineStage):
         elif isinstance(query.message_event, platform_events.FriendMessage):
             sender_name = query.message_event.sender.nickname
 
+        platform_message_id = getattr(query.message_event.source_platform_object, 'message_id', '')
         variables = {
             'launcher_type': query.session.launcher_type.value,
             'launcher_id': query.session.launcher_id,
@@ -122,6 +123,7 @@ class PreProcessor(stage.PipelineStage):
             if isinstance(query.message_event, platform_events.GroupMessage)
             else '',
             'sender_name': sender_name,
+            'platform_message_id': platform_message_id,
         }
         query.variables.update(variables)
 
