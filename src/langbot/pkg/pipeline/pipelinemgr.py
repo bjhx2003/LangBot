@@ -320,7 +320,15 @@ class RuntimePipeline:
                 message_chain=query.message_chain,
             )
 
+            platform_message_id = getattr(query.message_event.source_platform_object, 'message_id', '')
+            self.ap.logger.debug(
+                f'MessageReceived query={query.query_id} platform_message_id={platform_message_id}'
+            )
             event_ctx = await self.ap.plugin_connector.emit_event(event_obj, bound_plugins)
+            self.ap.logger.debug(
+                f'MessageReceived result query={query.query_id} prevented={event_ctx.is_prevented_default()} '
+                f'platform_message_id={platform_message_id}'
+            )
 
             if event_ctx.is_prevented_default():
                 return

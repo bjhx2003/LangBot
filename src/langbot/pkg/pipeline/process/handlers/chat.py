@@ -50,7 +50,16 @@ class ChatMessageHandler(handler.MessageHandler):
 
         # Get bound plugins for filtering
         bound_plugins = query.variables.get('_pipeline_bound_plugins', None)
+        platform_message_id = getattr(query.message_event.source_platform_object, 'message_id', '')
+        self.ap.logger.debug(
+            f'PersonNormalMessageReceived query={query.query_id} platform_message_id={platform_message_id}'
+        )
         event_ctx = await self.ap.plugin_connector.emit_event(event, bound_plugins)
+        self.ap.logger.debug(
+            f'PersonNormalMessageReceived result query={query.query_id} '
+            f'prevented={event_ctx.is_prevented_default()} platform_message_id={platform_message_id} '
+            f'has_reply_chain={event_ctx.event.reply_message_chain is not None}'
+        )
 
         is_create_card = False  # 判断下是否需要创建流式卡片
 
