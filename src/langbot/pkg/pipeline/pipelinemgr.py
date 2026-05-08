@@ -297,6 +297,9 @@ class RuntimePipeline:
             )
             # Store message_id in query variables for LLM call monitoring
             query.variables['_monitoring_message_id'] = message_id
+            # Notify adapter so it can map platform-specific IDs to monitoring message ID
+            if hasattr(query.adapter, 'on_monitoring_message_created'):
+                await query.adapter.on_monitoring_message_created(query, message_id)
         except Exception as e:
             self.ap.logger.error(f'Failed to record query start: {e}')
 
@@ -331,6 +334,9 @@ class RuntimePipeline:
             )
 
             if event_ctx.is_prevented_default():
+                self.ap.logger.debug(
+                    f'MessageReceived event prevented default for query {query.query_id}, pipeline={pipeline_name}'
+                )
                 return
 
             self.ap.logger.debug(f'Processing query {query.query_id}')

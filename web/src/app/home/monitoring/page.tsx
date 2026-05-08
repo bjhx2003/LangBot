@@ -1,6 +1,4 @@
-'use client';
-
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -10,8 +8,11 @@ import MonitoringFilters from './components/filters/MonitoringFilters';
 import { ExportDropdown } from './components/ExportDropdown';
 import { useMonitoringFilters } from './hooks/useMonitoringFilters';
 import { useMonitoringData } from './hooks/useMonitoringData';
+import { useFeedbackData } from './hooks/useFeedbackData';
 import { MessageDetailsCard } from './components/MessageDetailsCard';
 import { MessageContentRenderer } from './components/MessageContentRenderer';
+import { FeedbackStatsCards } from './components/FeedbackCard';
+import { FeedbackList } from './components/FeedbackList';
 import { MessageDetails } from './types/monitoring';
 import { httpClient } from '@/app/infra/http/HttpClient';
 import { LoadingSpinner, LoadingPage } from '@/components/ui/loading-spinner';
@@ -67,6 +68,74 @@ function MonitoringPageContent() {
   const { filterState, setSelectedBots, setSelectedPipelines, setTimeRange } =
     useMonitoringFilters();
   const { data, loading, refetch } = useMonitoringData(filterState);
+
+  // Counter to force feedbackTimeRange recomputation on manual refresh
+  const [feedbackRefreshKey, setFeedbackRefreshKey] = useState(0);
+
+  // Get time range for feedback data
+  const feedbackTimeRange = useMemo(() => {
+    const now = new Date();
+    let startTime: Date | null = null;
+
+    switch (filterState.timeRange) {
+      case 'lastHour':
+        startTime = new Date(now.getTime() - 60 * 60 * 1000);
+        break;
+      case 'last6Hours':
+        startTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        break;
+      case 'last24Hours':
+        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case 'last7Days':
+        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'last30Days':
+        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'custom':
+        if (filterState.customDateRange) {
+          startTime = filterState.customDateRange.from;
+        }
+        break;
+    }
+
+    const endTime =
+      filterState.timeRange === 'custom' && filterState.customDateRange
+        ? filterState.customDateRange.to
+        : now;
+
+    return {
+      startTime: startTime?.toISOString(),
+      endTime: endTime.toISOString(),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterState.timeRange, filterState.customDateRange, feedbackRefreshKey]);
+
+  // Feedback data hook
+  const {
+    feedback: feedbackList,
+    stats: feedbackStats,
+    loading: feedbackLoading,
+  } = useFeedbackData({
+    botIds:
+      filterState.selectedBots.length > 0
+        ? filterState.selectedBots
+        : undefined,
+    pipelineIds:
+      filterState.selectedPipelines.length > 0
+        ? filterState.selectedPipelines
+        : undefined,
+    startTime: feedbackTimeRange.startTime,
+    endTime: feedbackTimeRange.endTime,
+    limit: 50,
+  });
+
+  // Combined refresh handler for both monitoring and feedback data
+  const handleRefresh = useCallback(() => {
+    refetch();
+    setFeedbackRefreshKey((k) => k + 1);
+  }, [refetch]);
 
   const [expandedMessageId, setExpandedMessageId] = useState<string | null>(
     null,
@@ -206,7 +275,7 @@ function MonitoringPageContent() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={refetch}
+                onClick={handleRefresh}
                 className="shadow-sm flex-shrink-0"
               >
                 <svg
@@ -248,6 +317,9 @@ function MonitoringPageContent() {
                 </TabsTrigger>
                 <TabsTrigger value="modelCalls" className="px-6 py-2">
                   {t('monitoring.tabs.modelCalls')}
+                </TabsTrigger>
+                <TabsTrigger value="feedback" className="px-6 py-2">
+                  {t('monitoring.tabs.feedback')}
                 </TabsTrigger>
                 <TabsTrigger value="errors" className="px-6 py-2">
                   {t('monitoring.tabs.errors')}
@@ -606,6 +678,38 @@ function MonitoringPageContent() {
                       </div>
                     </div>
                   )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="feedback" className="p-6 m-0">
+              <div>
+                {loading && (
+                  <div className="py-12 flex justify-center">
+                    <LoadingSpinner text={t('common.loading')} />
+                  </div>
+                )}
+
+                {!loading && (
+                  <>
+                    {/* Feedback Stats Cards */}
+                    <div className="mb-6">
+                      <FeedbackStatsCards
+                        stats={feedbackStats}
+                        loading={feedbackLoading}
+                      />
+                    </div>
+
+                    {/* Feedback List */}
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                      {t('monitoring.feedback.feedbackList')}
+                    </h3>
+                    <FeedbackList
+                      feedback={feedbackList}
+                      loading={feedbackLoading}
+                      onViewMessage={jumpToMessage}
+                    />
+                  </>
+                )}
               </div>
             </TabsContent>
 
