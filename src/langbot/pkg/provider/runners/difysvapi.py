@@ -98,15 +98,14 @@ class DifyServiceAPIRunner(runner.RequestRunner):
         return message_id
 
     @classmethod
-    def _build_dify_inputs(cls, query: pipeline_query.Query) -> dict[str, typing.Any]:
-        inputs = {}
-        inputs.update(query.variables)
-
+    def _append_wecombot_platform_message_id(
+        cls,
+        inputs: dict[str, typing.Any],
+        query: pipeline_query.Query,
+    ) -> None:
         platform_message_id = cls._get_wecombot_platform_message_id(query)
         if platform_message_id:
             inputs['platform_message_id'] = platform_message_id
-
-        return inputs
 
     def _is_remove_think_enabled(self) -> bool:
         misc_config = self._get_output_misc_config()
@@ -856,7 +855,9 @@ class DifyServiceAPIRunner(runner.RequestRunner):
 
         basic_mode_pending_chunk = ''
 
-        inputs = self._build_dify_inputs(query)
+        inputs = {}
+        inputs.update(query.variables)
+        self._append_wecombot_platform_message_id(inputs, query)
 
         chunk = None  # 初始化chunk变量，防止在没有响应时引用错误
 
@@ -925,7 +926,9 @@ class DifyServiceAPIRunner(runner.RequestRunner):
 
         ignored_events = []
 
-        inputs = self._build_dify_inputs(query)
+        inputs = {}
+        inputs.update(query.variables)
+        self._append_wecombot_platform_message_id(inputs, query)
 
         pending_agent_message = ''
 
@@ -1038,7 +1041,8 @@ class DifyServiceAPIRunner(runner.RequestRunner):
             'langbot_msg_create_time': query.variables['msg_create_time'],
         }
 
-        inputs.update(self._build_dify_inputs(query))
+        inputs.update(query.variables)
+        self._append_wecombot_platform_message_id(inputs, query)
 
         chunk = None
         workflow_succeeded = False
@@ -1118,7 +1122,9 @@ class DifyServiceAPIRunner(runner.RequestRunner):
         mode = 'basic'
         basic_mode_pending_chunk = ''
 
-        inputs = self._build_dify_inputs(query)
+        inputs = {}
+        inputs.update(query.variables)
+        self._append_wecombot_platform_message_id(inputs, query)
         message_idx = 0
 
         chunk = None  # 初始化chunk变量，防止在没有响应时引用错误
@@ -1259,7 +1265,9 @@ class DifyServiceAPIRunner(runner.RequestRunner):
 
         ignored_events = []
 
-        inputs = self._build_dify_inputs(query)
+        inputs = {}
+        inputs.update(query.variables)
+        self._append_wecombot_platform_message_id(inputs, query)
 
         pending_agent_message = ''
 
@@ -1436,7 +1444,8 @@ class DifyServiceAPIRunner(runner.RequestRunner):
             'langbot_msg_create_time': query.variables['msg_create_time'],
         }
 
-        inputs.update(self._build_dify_inputs(query))
+        inputs.update(query.variables)
+        self._append_wecombot_platform_message_id(inputs, query)
         messsage_idx = 0
         is_final = False
         stream_completed = False

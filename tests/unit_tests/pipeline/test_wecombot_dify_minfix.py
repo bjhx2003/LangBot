@@ -127,7 +127,9 @@ def test_dify_inputs_include_wecombot_platform_message_id():
         ),
     )
 
-    inputs = DifyServiceAPIRunner._build_dify_inputs(query)
+    inputs = {}
+    inputs.update(query.variables)
+    DifyServiceAPIRunner._append_wecombot_platform_message_id(inputs, query)
 
     assert inputs['session_id'] == 'person_user-1'
     assert inputs['platform_message_id'] == 'wecombot-msg-1'
@@ -142,7 +144,9 @@ def test_dify_inputs_do_not_set_platform_message_id_for_non_wecombot_event():
         ),
     )
 
-    inputs = DifyServiceAPIRunner._build_dify_inputs(query)
+    inputs = {}
+    inputs.update(query.variables)
+    DifyServiceAPIRunner._append_wecombot_platform_message_id(inputs, query)
 
     assert inputs == {'session_id': 'person_user-1'}
 
