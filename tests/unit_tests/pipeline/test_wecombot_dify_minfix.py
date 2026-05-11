@@ -36,6 +36,10 @@ def get_dify_runner():
     return import_module('langbot.pkg.provider.runners.difysvapi').DifyServiceAPIRunner
 
 
+def get_wecom_event():
+    return import_module('langbot.libs.wecom_ai_bot_api.wecombotevent').WecomBotEvent
+
+
 def get_stream_types():
     api_module = import_module('langbot.libs.wecom_ai_bot_api.api')
     return api_module.StreamChunk, api_module.StreamSessionManager
@@ -105,6 +109,46 @@ def make_runtime_binding(uuid: str, created_at: int, last_active_at: int, policy
         'last_active_at': last_active_at,
         'policy_version': policy_version,
     }
+
+
+def test_dify_inputs_include_wecombot_platform_message_id():
+    DifyServiceAPIRunner = get_dify_runner()
+    WecomBotEvent = get_wecom_event()
+    query = SimpleNamespace(
+        variables={'session_id': 'person_user-1'},
+        message_event=SimpleNamespace(
+            source_platform_object=WecomBotEvent(
+                {
+                    'msgid': 'wecombot-msg-1',
+                    'from': {'userid': 'user-1'},
+                    'content': 'hello',
+                }
+            )
+        ),
+    )
+
+    inputs = {}
+    inputs.update(query.variables)
+    DifyServiceAPIRunner._append_wecombot_platform_message_id(inputs, query)
+
+    assert inputs['session_id'] == 'person_user-1'
+    assert inputs['platform_message_id'] == 'wecombot-msg-1'
+
+
+def test_dify_inputs_do_not_set_platform_message_id_for_non_wecombot_event():
+    DifyServiceAPIRunner = get_dify_runner()
+    query = SimpleNamespace(
+        variables={'session_id': 'person_user-1'},
+        message_event=SimpleNamespace(
+            source_platform_object=SimpleNamespace(message_id='other-platform-msg-1'),
+        ),
+    )
+
+    inputs = {}
+    inputs.update(query.variables)
+    DifyServiceAPIRunner._append_wecombot_platform_message_id(inputs, query)
+
+    assert inputs == {'session_id': 'person_user-1'}
 
 
 @pytest.mark.asyncio
