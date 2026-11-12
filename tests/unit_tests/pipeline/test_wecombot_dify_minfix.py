@@ -40,6 +40,10 @@ def get_wecom_event():
     return import_module('langbot.libs.wecom_ai_bot_api.wecombotevent').WecomBotEvent
 
 
+def get_wecom_cs_event():
+    return import_module('langbot.libs.wecom_customer_service_api.wecomcsevent').WecomCSEvent
+
+
 def get_stream_types():
     api_module = import_module('langbot.libs.wecom_ai_bot_api.api')
     return api_module.StreamChunk, api_module.StreamSessionManager
@@ -149,6 +153,31 @@ def test_dify_inputs_do_not_set_platform_message_id_for_non_wecombot_event():
     DifyServiceAPIRunner._append_wecombot_platform_message_id(inputs, query)
 
     assert inputs == {'session_id': 'person_user-1'}
+
+
+def test_dify_inputs_include_wecom_customer_service_message_id_and_account():
+    DifyServiceAPIRunner = get_dify_runner()
+    WecomCSEvent = get_wecom_cs_event()
+    query = SimpleNamespace(
+        variables={'session_id': 'person_user-1'},
+        message_event=SimpleNamespace(
+            source_platform_object=WecomCSEvent(
+                {
+                    'msgtype': 'text',
+                    'msgid': 'wecomcs-msg-1',
+                    'external_userid': 'external-user-1',
+                    'open_kfid': 'kf-1',
+                }
+            )
+        ),
+    )
+
+    inputs = {}
+    inputs.update(query.variables)
+    DifyServiceAPIRunner._append_wecombot_platform_message_id(inputs, query)
+
+    assert inputs['platform_message_id'] == 'wecomcs-msg-1'
+    assert inputs['open_kf_id'] == 'kf-1'
 
 
 @pytest.mark.asyncio

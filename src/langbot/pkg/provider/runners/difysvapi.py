@@ -84,7 +84,8 @@ class DifyServiceAPIRunner(runner.RequestRunner):
         if source_platform_object is None:
             return None
 
-        if source_platform_object.__class__.__name__ != 'WecomBotEvent':
+        source_platform_type = source_platform_object.__class__.__name__
+        if source_platform_type not in {'WecomBotEvent', 'WecomCSEvent'}:
             return None
 
         message_id = getattr(source_platform_object, 'message_id', None)
@@ -103,9 +104,15 @@ class DifyServiceAPIRunner(runner.RequestRunner):
         inputs: dict[str, typing.Any],
         query: pipeline_query.Query,
     ) -> None:
+        message_event = getattr(query, 'message_event', None)
+        source_platform_object = getattr(message_event, 'source_platform_object', None)
         platform_message_id = cls._get_wecombot_platform_message_id(query)
         if platform_message_id:
             inputs['platform_message_id'] = platform_message_id
+        if source_platform_object is not None and source_platform_object.__class__.__name__ == 'WecomCSEvent':
+            open_kf_id = getattr(source_platform_object, 'receiver_id', None)
+            if open_kf_id:
+                inputs['open_kf_id'] = str(open_kf_id).strip()
 
     def _is_remove_think_enabled(self) -> bool:
         misc_config = self._get_output_misc_config()
