@@ -68,6 +68,16 @@ spec:
       section:
         en_US: Access Requirements
         zh_Hans: 接入要求
+    - name: welcome_message
+      label:
+        en_US: Customer Service Welcome Message
+        zh_Hans: 客服欢迎语
+      description:
+        en_US: "Sent when a customer enters a session and WeCom provides a welcome code. Leave blank to disable. Maximum 2048 UTF-8 bytes."
+        zh_Hans: 客户进入会话且企微提供欢迎语凭证时自动发送。留空关闭，不影响消息接收。最多2048字节，中文通常每字占3字节。
+      type: text
+      required: false
+      default: ""
     - name: history_message_drop_threshold_seconds
       label:
         en_US: History Message Window

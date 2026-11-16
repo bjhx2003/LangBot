@@ -188,6 +188,7 @@ class WecomCSAdapter(abstract_platform_adapter.AbstractMessagePlatformAdapter):
             logger=logger,
             unified_mode=True,
             api_base_url=config.get('api_base_url', 'https://qyapi.weixin.qq.com/cgi-bin'),
+            welcome_message=config.get('welcome_message') or '',
         )
         # 中文注释：昵称查询发生在消息转换阶段，不依赖 Redis 调度是否启用，所以在适配器初始化时就写入解析后的超时值。
         bot.nickname_lookup_timeout_seconds = float(resolved_runtime_settings['nickname_lookup_timeout_seconds'])
