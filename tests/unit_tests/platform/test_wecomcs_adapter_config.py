@@ -1,8 +1,10 @@
 import pytest
+import yaml
 
 import langbot.pkg.platform.sources.wecomcs as wecomcs_source
 import langbot_plugin.api.definition.abstract.platform.event_logger as abstract_platform_logger
 from langbot.pkg.platform.sources.wecomcs import WecomCSAdapter, WecomEventConverter
+from langbot.pkg.platform.sources.wecom_kf_app import WecomKFAppAdapter
 
 
 class FakeRedisManager:
@@ -48,6 +50,30 @@ def base_config() -> dict:
         'EncodingAESKey': 'aes',
         'api_base_url': 'https://qyapi.weixin.qq.com/cgi-bin',
     }
+
+
+@pytest.mark.parametrize('adapter_type', [WecomCSAdapter, WecomKFAppAdapter])
+@pytest.mark.parametrize('welcome_message', [None, '', '您好，请告诉我装货地和卸货地。'])
+def test_customer_service_adapter_passes_optional_welcome_to_client(base_config, adapter_type, welcome_message):
+    config = dict(base_config)
+    if welcome_message is not None:
+        config['welcome_message'] = welcome_message
+
+    adapter = adapter_type(config, FakeLogger({'enabled': False}))
+
+    assert adapter.bot.welcome_message == (welcome_message or '')
+
+
+@pytest.mark.parametrize('adapter_name', ['wecomcs', 'wecom_kf_app'])
+def test_customer_service_manifest_exposes_optional_welcome_text(adapter_name):
+    with open(f'src/langbot/pkg/platform/sources/{adapter_name}.yaml', encoding='utf-8') as manifest_file:
+        manifest = yaml.safe_load(manifest_file)
+
+    fields = {field['name']: field for field in manifest['spec']['config']}
+
+    assert fields['welcome_message']['type'] == 'text'
+    assert fields['welcome_message']['required'] is False
+    assert fields['welcome_message']['default'] == ''
 
 
 @pytest.mark.asyncio

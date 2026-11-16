@@ -19,6 +19,10 @@ from ...pkg.platform.wecomcs.token_cache import WecomCSTokenCache
 from ...pkg.platform.wecomcs.pull_trigger_publisher import WecomCSPullTriggerPublisher
 
 _logger = logging.getLogger('langbot')
+_WELCOME_CODE_TTL_SECONDS = 20
+_WELCOME_SEND_TIMEOUT_SECONDS = 5
+_WELCOME_DEDUPE_TTL_SECONDS = 60
+_WELCOME_TEXT_MAX_BYTES = 2048
 
 
 class WecomCSInvalidSyncMsgTokenError(Exception):
@@ -35,6 +39,7 @@ class WecomCSClient:
         logger: None,
         unified_mode: bool = False,
         api_base_url: str = 'https://qyapi.weixin.qq.com/cgi-bin',
+        welcome_message: str = '',
     ):
         self.corpid = corpid
         self.secret = secret
@@ -45,6 +50,9 @@ class WecomCSClient:
         self.access_token = ''
         self.logger = logger
         self.unified_mode = unified_mode
+        self.welcome_message = welcome_message
+        self._welcome_attempts: dict[str, float] = {}
+        self._welcome_lock = asyncio.Lock()
         self.app = Quart(__name__)
 
         redis_mgr = getattr(getattr(logger, 'ap', None), 'redis_mgr', None) if logger else None
@@ -253,7 +261,18 @@ class WecomCSClient:
             _logger.error(f'[wecomcs] sync_msg失败: {self._diag_context(open_kfid=open_kfid)}, payload={data}')
             raise Exception('Failed to get message')
 
-        msg_list = data.get('msg_list') or []
+        msg_list = []
+        for msg_data in data.get('msg_list') or []:
+            event_data = msg_data.get('event')
+            if (
+                msg_data.get('msgtype') == 'event'
+                and isinstance(event_data, dict)
+                and event_data.get('event_type') == 'enter_session'
+            ):
+                await self._send_session_welcome(msg_data)
+            else:
+                msg_list.append(msg_data)
+
         for msg_data in msg_list:
             if msg_data.get('msgtype') == 'image' and msg_data.get('image'):
                 media_id = msg_data['image'].get('media_id')
@@ -265,6 +284,79 @@ class WecomCSClient:
             'next_cursor': data.get('next_cursor', ''),
             'has_more': bool(data.get('has_more', False)),
         }
+
+    async def _send_session_welcome(self, message_data: dict):
+        content = self.welcome_message or ''
+        event_data = message_data['event']
+        welcome_code = event_data.get('welcome_code')
+        if not isinstance(content, str) or not content.strip() or not isinstance(welcome_code, str) or not welcome_code:
+            return
+        if len(content.encode('utf-8')) > _WELCOME_TEXT_MAX_BYTES:
+            _logger.warning('[wecomcs] welcome content exceeds 2048 UTF-8 bytes: %s', self._diag_context())
+            return
+
+        remaining_seconds = float(_WELCOME_CODE_TTL_SECONDS)
+        try:
+            send_time = float(message_data.get('send_time') or 0)
+        except (TypeError, ValueError):
+            send_time = 0
+        if send_time > 0:
+            if send_time > 1_000_000_000_000:
+                send_time /= 1000
+            remaining_seconds -= max(0, time.time() - send_time)
+        if remaining_seconds <= 0:
+            return
+
+        digest = hashlib.sha256(f'wecomcs-welcome:{self.corpid}:{welcome_code}'.encode('utf-8')).hexdigest()
+        try:
+            async with asyncio.timeout(min(_WELCOME_SEND_TIMEOUT_SECONDS, remaining_seconds)):
+                async with self._welcome_lock:
+                    now = time.monotonic()
+                    self._welcome_attempts = {
+                        key: expires_at for key, expires_at in self._welcome_attempts.items() if expires_at > now
+                    }
+                    if digest in self._welcome_attempts:
+                        return
+                    self._welcome_attempts[digest] = now + _WELCOME_DEDUPE_TTL_SECONDS
+                    redis_mgr = self.token_cache.redis_mgr
+                    if redis_mgr and redis_mgr.is_available():
+                        try:
+                            reserved = await redis_mgr.set_if_not_exists(
+                                f'wecomcs:welcome:{digest}', '1', ex=_WELCOME_DEDUPE_TTL_SECONDS
+                            )
+                        except Exception as exc:
+                            _logger.warning('[wecomcs] welcome deduplication unavailable: %s', type(exc).__name__)
+                        else:
+                            if not reserved:
+                                return
+
+                await self.send_welcome_msg(welcome_code, content, digest[:32])
+                _logger.info(
+                    '[wecomcs] welcome sent: %s',
+                    self._diag_context(open_kfid=str(event_data.get('open_kfid') or '')),
+                )
+        except Exception as exc:
+            _logger.warning(
+                '[wecomcs] welcome send failed: error_type=%s, %s', type(exc).__name__, self._diag_context()
+            )
+
+    async def send_welcome_msg(self, welcome_code: str, content: str, msgid: str):
+        await self.ensure_access_token()
+        payload = {'code': welcome_code, 'msgid': msgid, 'msgtype': 'text', 'text': {'content': content}}
+        client = await self._get_http_client()
+        for attempt in range(2):
+            response = await client.post(
+                f'{self.base_url}/kf/send_msg_on_event?access_token={self.access_token}', json=payload
+            )
+            response.raise_for_status()
+            data = response.json()
+            if data.get('errcode') in (40014, 42001) and attempt == 0:
+                await self.refresh_access_token()
+                continue
+            if data.get('errcode') == 0 or data.get('errcode') == 95033:
+                return data
+            _logger.warning('[wecomcs] welcome API rejected: errcode=%s', data.get('errcode'))
+            raise RuntimeError('WeCom welcome API rejected the message')
 
     async def get_detailed_message_list(self, xml_msg: str):
         # 中文注释：企业微信一次回调可能携带多条消息，不能只取最后一条，否则会丢消息。
